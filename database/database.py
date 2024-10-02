@@ -1,4 +1,6 @@
+
 from pymongo import MongoClient
+"""
 import motor.motor_asyncio
 from config import DB_URI, DB_NAME
 
@@ -64,4 +66,83 @@ async def update_verify_status(id, is_verified=None, verify_token=None, verified
         update_fields["verified_time"] = verified_time
 
     users.update_one({"_id": id}, {"$set": update_fields})
+
+
+# db.py
+"""
+from motor.motor_asyncio import AsyncIOMotorClient
+from config import DB_URI, DB_NAME
+
+# Initialize MongoDB Client
+mongo_client = AsyncIOMotorClient(DB_URI)
+db = mongo_client[DB_NAME]
+
+# Collections
+users_collection = db["users"]  # Collection for users
+tokens_collection = db["tokens"]  # Collection for token counts
+
+# Default user data structure
+default_user = {
+    "_id": None,  # User ID
+    "limit": 15,  # Starting credits
+    "is_premium": False,  # Premium status
+    "is_verified": False,
+    "verify_token": "",
+    "verified_time": 0
+}
+
+# Add a new user
+async def add_user(user_id: int):
+    user = default_user.copy()
+    user["_id"] = user_id
+    await users_collection.insert_one(user)
+
+# Check if user exists
+async def present_user(user_id: int) -> bool:
+    user = await users_collection.find_one({'_id': user_id})
+    return bool(user)
+
+# Get user data
+async def get_user_data(user_id: int):
+    user = await users_collection.find_one({'_id': user_id})
+    if not user:
+        # If user doesn't exist, add them
+        await add_user(user_id)
+        user = await users_collection.find_one({'_id': user_id})
+    return user
+
+# Update user data
+async def update_user_data(user_id: int, data: dict):
+    await users_collection.update_one({'_id': user_id}, {'$set': data})
+
+# Delete user
+async def del_user(user_id: int):
+    await users_collection.delete_one({'_id': user_id})
+
+# Get all user IDs
+async def full_userbase():
+    user_docs = users_collection.find()
+    user_ids = [doc['_id'] async for doc in user_docs]
+    return user_ids
+
+# Token-related functions
+async def set_token(user_id: int, token: str):
+    await update_user_data(user_id, {"verify_token": token})
+
+async def get_token(user_id: int) -> str:
+    user = await get_user_data(user_id)
+    return user.get('verify_token', "")
+
+async def increment_user_limit(user_id: int, amount: int = 10):
+    await users_collection.update_one({'_id': user_id}, {'$inc': {'limit': amount}})
+
+async def decrement_user_limit(user_id: int, amount: int = 1):
+    await users_collection.update_one({'_id': user_id}, {'$inc': {'limit': -amount}})
+
+async def get_user_limit(user_id: int) -> int:
+    user = await get_user_data(user_id)
+    return user.get('limit', 0)
+
+async def set_premium(user_id: int, is_premium: bool):
+    await update_user_data(user_id, {"is_premium": is_premium})
 
