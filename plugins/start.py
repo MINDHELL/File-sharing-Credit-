@@ -253,12 +253,17 @@ async def start_command(client: Client, message: Message):
     # Generate a new token if not present
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        await users_collection.update_one(
-            {"user_id": user_id},
-            {"$set": {"previous_token": previous_token}},
-            upsert=True,
-        )
-        logger.info(f"Generated new token for user {user_id}: {previous_token}")
+        try:
+            await users_collection.update_one(
+                {"user_id": user_id},
+                {"$set": {"previous_token": previous_token}},
+                upsert=True,
+            )
+            logger.info(f"Generated new token for user {user_id}: {previous_token}")
+        except Exception as e:
+            logger.error(f"Error updating token for user {user_id}: {e}")
+            await message.reply("An error occurred while generating your token. Please try again.")
+            return
 
     # Generate the verification link
     verification_link = f"https://t.me/{CLIENT_USERNAME}?start=verify_{previous_token}"
@@ -268,15 +273,20 @@ async def start_command(client: Client, message: Message):
     if len(message.text.split()) > 1 and "verify_" in message.text:
         provided_token = message.text.split("verify_", 1)[1]
         if provided_token == previous_token:
-            # Verification successful, increase limit
-            new_limit = user_limit + LIMIT_INCREASE_AMOUNT
-            await update_user_limit(user_id, new_limit)  # Ensure this function is defined
-            await log_verification(user_id)  # Ensure this function is defined
-            await increment_token_count(user_id)
-            confirmation_message = await message.reply_text(
-                "✅ Your limit has been successfully increased by 10! Use /check to view your credits."
-            )
-            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+            try:
+                # Verification successful, increase limit
+                new_limit = user_limit + LIMIT_INCREASE_AMOUNT
+                await update_user_limit(user_id, new_limit)  # Ensure this function is defined
+                await log_verification(user_id)  # Ensure this function is defined
+                await increment_token_count(user_id)
+                confirmation_message = await message.reply_text(
+                    "✅ Your limit has been successfully increased by 10! Use /check to view your credits."
+                )
+                asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error updating user limit for {user_id}: {e}")
+                error_message = await message.reply_text("An error occurred while updating your limit.")
+                asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
             return
         else:
             error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
@@ -322,7 +332,12 @@ async def start_command(client: Client, message: Message):
 
     # Deduct 1 from the user's limit only if not premium
     if not premium_status:
-        await update_user_limit(user_id, user_limit - 1)  # Ensure this function is defined
+        try:
+            await update_user_limit(user_id, user_limit - 1)  # Ensure this function is defined
+        except Exception as e:
+            logger.error(f"Error deducting limit for user {user_id}: {e}")
+            await message.reply("An error occurred while updating your limit.")
+            return
 
     # Handle the rest of the start command logic
     text = message.text
@@ -334,7 +349,7 @@ async def start_command(client: Client, message: Message):
 
             ids = []
             if len(arguments) == 3:
-                start = int(int(arguments[1]) / abs(client.db_channel.id))  # Replace client.db_channel.id accordingly
+                start = int(int(arguments[1]) / abs(client.db_channel.id))  # Replace YOUR_CHANNEL_ID accordingly
                 end = int(int(arguments[2]) / abs(client.db_channel.id))
                 if start <= end:
                     ids = list(range(start, end + 1))
@@ -409,17 +424,19 @@ async def start_command(client: Client, message: Message):
             f"• **User ID:** `{user_id}`\n"
             f"• **Username:** @{user.username if user.username else 'N/A'}"
         )
-        welcome_message = await message.reply_text(
-            text=welcome_text,
-            reply_markup=reply_markup,
-            disable_web_page_preview=True,
-            quote=True,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        try:
+            welcome_message = await message.reply_text(
+                text=welcome_text,
+                reply_markup=reply_markup,
+                disable_web_page_preview=True,
+                quote=True,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        except Exception as e:
+            logger.error(f"Error sending welcome message to user {user_id}: {e}")
         return
-
-
+        
 # Callback Query Handler for Token Count
 
 @Bot.on_callback_query(filters.regex(r"^check_tokens$"))
