@@ -225,211 +225,6 @@ async def count_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while retrieving count data.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
-"""
-@Bot.on_message(filters.command("start") & filters.private)
-async def start_command(client: Client, message: Message):
-    # Handles the /start command with token verification and user registration.
-    user_id = message.from_user.id
-    user = message.from_user
-
-    # Check if the user is the owner
-    if user_id == OWNER_ID:
-        await message.reply("👑 You are the owner! Welcome back.")
-        return
-
-    # Register the user if not already present
-    if not await present_user(user_id):
-        try:
-            await add_user(user_id)
-            logger.info(f"Registered new user: {user_id}")
-        except Exception as e:
-            logger.error(f"Error adding user {user_id}: {e}")
-            await message.reply("An error occurred during registration. Please try again later.")
-            return
-
-    # Retrieve user data
-    user_data = await user_data.find_one({"user_id": user_id})
-    if not user_data:
-        logger.error(f"User data not found for user_id: {user_id}")
-        await message.reply("An error occurred. Please try again later.")
-        return
-
-    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
-    previous_token = user_data.get("previous_token")
-
-    premium_status = await is_premium_user(user_id)
-    verify_status = await get_verify_status(user_id)  # Ensure this function is defined
-
-    # Generate a new token if not present
-    if not previous_token:
-        previous_token = str(uuid.uuid4())
-        await user_data.update_one(
-            {"user_id": user_id},
-            {"$set": {"previous_token": previous_token}},
-            upsert=True,
-        )
-        logger.info(f"Generated new token for user {user_id}: {previous_token}")
-
-    # Generate the verification link
-    verification_link = f"https://t.me/{CLIENT_USERNAME}?start=verify_{previous_token}"
-    shortened_link = await generate_short_link(verification_link)
-
-    # Check if the user is providing a verification token
-    if len(message.text.split()) > 1 and "verify_" in message.text:
-        provided_token = message.text.split("verify_", 1)[1]
-        if provided_token == previous_token:
-            # Verification successful, increase limit
-            new_limit = user_limit + LIMIT_INCREASE_AMOUNT
-            await update_user_limit(user_id, new_limit)  # Ensure this function is defined
-            await log_verification(user_id)  # Ensure this function is defined
-            await increment_token_count(user_id)
-            confirmation_message = await message.reply_text(
-                "✅ Your limit has been successfully increased by 10! Use /check to view your credits."
-            )
-            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
-            return
-        else:
-            error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
-            asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
-            return
-
-    # If the user is not premium and the limit is reached, prompt to increase limit
-    if not premium_status and user_limit <= 0:
-        limit_message = (
-            "🔒 **Your limit has been reached.**\n"
-            "Use /check to view your credits.\n\n"
-            "👉 **Increase your limit by verifying: [Click Here]({})**".format(shortened_link)
-        )
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text="📈 Increase LIMIT",
-                    url=shortened_link
-                ),
-                InlineKeyboardButton(
-                    text="🔄 Try Again",
-                    url=f"https://t.me/{CLIENT_USERNAME}?start=default"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🎥 Verification Tutorial",
-                    url=TUT_VID
-                )
-            ]
-        ]
-
-        reply_markup = InlineKeyboardMarkup(buttons)
-        await message.reply(
-            text=limit_message,
-            reply_markup=reply_markup,
-            disable_web_page_preview=True,
-            quote=True,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
-        return
-
-    # Deduct 1 from the user's limit only if not premium
-    if not premium_status:
-        await update_user_limit(user_id, user_limit - 1)  # Ensure this function is defined
-
-    # Handle the rest of the start command logic
-    text = message.text
-    if len(text.split()) > 1 and (verify_status["is_verified"] or premium_status):
-        try:
-            base64_string = text.split(" ", 1)[1]
-            decoded_string = await decode(base64_string)
-            arguments = decoded_string.split("-")
-
-            ids = []
-            if len(arguments) == 3:
-                start = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))  # Replace YOUR_CHANNEL_ID accordingly
-                end = int(int(arguments[2]) / abs(YOUR_CHANNEL_ID))
-                if start <= end:
-                    ids = list(range(start, end + 1))
-                else:
-                    ids = list(range(start, end - 1, -1))
-            elif len(arguments) == 2:
-                single_id = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))
-                ids = [single_id]
-            else:
-                logger.error("Invalid number of arguments in decoded string.")
-                return
-
-            temp_msg = await message.reply("⏳ Please wait while processing your request...")
-            try:
-                messages = await get_messages(client, ids)  # Ensure this function is defined
-            except Exception as e:
-                await message.reply_text("❌ Something went wrong while fetching messages!")
-                logger.error(f"Error getting messages: {e}")
-                return
-
-            await temp_msg.delete()
-
-            for msg in messages:
-                if msg.document:
-                    caption = CUSTOM_CAPTION.format(
-                        previouscaption=msg.caption.html if msg.caption else "",
-                        filename=msg.document.file_name
-                    )
-                else:
-                    caption = msg.caption.html if msg.caption else ""
-
-                reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
-
-                try:
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode="html",
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-                    await asyncio.sleep(0.5)
-                except FloodWait as e:
-                    logger.warning(f"FloodWait encountered. Sleeping for {e.x} seconds.")
-                    await asyncio.sleep(e.x)
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode="html",
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-            return
-        except Exception as e:
-            logger.error(f"Error in processing /start command: {e}")
-            await message.reply_text("❌ An error occurred while processing your request.")
-            return
-    else:
-        # Send welcome message with buttons
-        reply_markup = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("😊 About Me", callback_data="about"),
-                    InlineKeyboardButton("🔒 Close", callback_data="close")
-                ]
-            ]
-        )
-        welcome_text = (
-            f"👋 Hello, {user.first_name}!\n\n"
-            f"• **User ID:** `{user_id}`\n"
-            f"• **Username:** @{user.username if user.username else 'N/A'}"
-        )
-        welcome_message = await message.reply_text(
-            text=welcome_text,
-            reply_markup=reply_markup,
-            disable_web_page_preview=True,
-            quote=True,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
-        return
-"""
-
 async def retrieve_files_for_premium(client, message):
     # Your logic to retrieve files directly from the channel for premium users
     text = message.text
@@ -514,7 +309,6 @@ async def start_command(client: Client, message: Message):
         await message.reply("You are the U-BAN! Additional actions can be added here.")
         return
 
-    # Register the user if not present
     if not await present_user(user_id):
         try:
             await add_user(user_id)
@@ -525,10 +319,10 @@ async def start_command(client: Client, message: Message):
             return
 
     # Retrieve or initialize user data
-    user_data = await user_data.find_one({"user_id": user_id})
+    user_info = await user_data.find_one({"user_id": user_id})  # Change user_data to user_info for clarity
 
-    # Ensure user_data is not None before accessing fields
-    if not user_data:
+    # Ensure user_info is not None before accessing fields
+    if not user_info:
         # Insert new user data if not present
         await user_data.insert_one({
             "user_id": user_id,
@@ -537,18 +331,17 @@ async def start_command(client: Client, message: Message):
             "is_premium": False,
             "is_verified": False
         })
-        user_data = await user_data.find_one({"user_id": user_id})  # Re-fetch the inserted data
+        user_info = await user_data.find_one({"user_id": user_id})  # Re-fetch the inserted data
 
     # Now safely access user data fields
-    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
-    previous_token = user_data.get("previous_token")
-    is_premium = user_data.get("is_premium", False)
+    user_limit = user_info.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_info.get("previous_token")
+    is_premium = user_info.get("is_premium", False)
+
     
 
     premium_status = await is_premium_user(user_id)  # Check if user is premium
     verify_status = await get_verify_status(user_id)  # Ensure this function is defined
-
-    is_premium = user_data.get("is_premium", False)
 
     # Generate a new token if not present
     if not previous_token:
@@ -561,9 +354,9 @@ async def start_command(client: Client, message: Message):
         logger.info(f"Generated new token for user {user_id}.")
 
     # Retrieve user data
-    user_data = await user_data.find_one({"_id": user_id})
-    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
-    previous_token = user_data.get("previous_token")
+    #user_data = await user_data.find_one({"_id": user_id})
+    #user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    #previous_token = user_data.get("previous_token")
 
 
     # Generate the verification link
