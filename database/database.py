@@ -82,7 +82,8 @@ from config import DB_URI, DB_NAME
 mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 
-client = MongoClient(DB_URI)
+client = AsyncIOMotorClient(MONGO_URI)
+#client = MongoClient(DB_URI)
 db = client[DB_NAME]
 users = db["users"]
 
