@@ -70,7 +70,7 @@ tz = pytz.timezone("Asia/Kolkata")
 mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 tokens_collection = db["tokens"]  # Collection for token counts
-user_data = db["pusers"]  # Collection for users =--> user_data = db["users"]   # Collection for user data
+user_data = db["users"]  # Collection for users =--> user_data = db["users"]   # Collection for user data
 premium_user_data = db["pusers"] # Collection for premium users
 #___--------
 
@@ -539,6 +539,7 @@ async def start_command(client: Client, message: Message):
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
     is_premium = user_data.get("is_premium", False)
+    
 
     premium_status = await is_premium_user(user_id)  # Check if user is premium
     verify_status = await get_verify_status(user_id)  # Ensure this function is defined
