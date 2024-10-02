@@ -57,6 +57,7 @@ from shortzy import Shortzy
 CLIENT_USERNAME = "phdlust_bot"  # Replace with your bot's username
 AUTO_DELETE_DELAY = 60  # Time in seconds after which messages are deleted
 LIMIT_INCREASE_AMOUNT = 10  # Amount to increase the user's limit upon verification
+START_COMMAND_LIMIT = 15
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
