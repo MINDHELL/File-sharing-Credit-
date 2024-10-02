@@ -54,7 +54,7 @@ from database.database import add_user, del_user, full_userbase, present_user
 from shortzy import Shortzy
 
 # Constants (Ensure these are defined appropriately)
-CLIENT_USERNAME = "YourBotUsername"  # Replace with your bot's username
+CLIENT_USERNAME = "phdlust_bot"  # Replace with your bot's username
 AUTO_DELETE_DELAY = 60  # Time in seconds after which messages are deleted
 LIMIT_INCREASE_AMOUNT = 10  # Amount to increase the user's limit upon verification
 
@@ -253,17 +253,12 @@ async def start_command(client: Client, message: Message):
     # Generate a new token if not present
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        try:
-            await users_collection.update_one(
-                {"user_id": user_id},
-                {"$set": {"previous_token": previous_token}},
-                upsert=True,
-            )
-            logger.info(f"Generated new token for user {user_id}: {previous_token}")
-        except Exception as e:
-            logger.error(f"Error updating token for user {user_id}: {e}")
-            await message.reply("An error occurred while generating your token. Please try again.")
-            return
+        await users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"previous_token": previous_token}},
+            upsert=True,
+        )
+        logger.info(f"Generated new token for user {user_id}: {previous_token}")
 
     # Generate the verification link
     verification_link = f"https://t.me/{CLIENT_USERNAME}?start=verify_{previous_token}"
@@ -273,20 +268,15 @@ async def start_command(client: Client, message: Message):
     if len(message.text.split()) > 1 and "verify_" in message.text:
         provided_token = message.text.split("verify_", 1)[1]
         if provided_token == previous_token:
-            try:
-                # Verification successful, increase limit
-                new_limit = user_limit + LIMIT_INCREASE_AMOUNT
-                await update_user_limit(user_id, new_limit)  # Ensure this function is defined
-                await log_verification(user_id)  # Ensure this function is defined
-                await increment_token_count(user_id)
-                confirmation_message = await message.reply_text(
-                    "✅ Your limit has been successfully increased by 10! Use /check to view your credits."
-                )
-                asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
-            except Exception as e:
-                logger.error(f"Error updating user limit for {user_id}: {e}")
-                error_message = await message.reply_text("An error occurred while updating your limit.")
-                asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+            # Verification successful, increase limit
+            new_limit = user_limit + LIMIT_INCREASE_AMOUNT
+            await update_user_limit(user_id, new_limit)  # Ensure this function is defined
+            await log_verification(user_id)  # Ensure this function is defined
+            await increment_token_count(user_id)
+            confirmation_message = await message.reply_text(
+                "✅ Your limit has been successfully increased by 10! Use /check to view your credits."
+            )
+            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
             return
         else:
             error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
@@ -332,12 +322,7 @@ async def start_command(client: Client, message: Message):
 
     # Deduct 1 from the user's limit only if not premium
     if not premium_status:
-        try:
-            await update_user_limit(user_id, user_limit - 1)  # Ensure this function is defined
-        except Exception as e:
-            logger.error(f"Error deducting limit for user {user_id}: {e}")
-            await message.reply("An error occurred while updating your limit.")
-            return
+        await update_user_limit(user_id, user_limit - 1)  # Ensure this function is defined
 
     # Handle the rest of the start command logic
     text = message.text
@@ -349,14 +334,14 @@ async def start_command(client: Client, message: Message):
 
             ids = []
             if len(arguments) == 3:
-                start = int(int(arguments[1]) / abs(client.db_channel.id))  # Replace YOUR_CHANNEL_ID accordingly
-                end = int(int(arguments[2]) / abs(client.db_channel.id))
+                start = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))  # Replace YOUR_CHANNEL_ID accordingly
+                end = int(int(arguments[2]) / abs(YOUR_CHANNEL_ID))
                 if start <= end:
                     ids = list(range(start, end + 1))
                 else:
                     ids = list(range(start, end - 1, -1))
             elif len(arguments) == 2:
-                single_id = int(int(arguments[1]) / abs(client.db_channel.id))
+                single_id = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))
                 ids = [single_id]
             else:
                 logger.error("Invalid number of arguments in decoded string.")
@@ -424,19 +409,17 @@ async def start_command(client: Client, message: Message):
             f"• **User ID:** `{user_id}`\n"
             f"• **Username:** @{user.username if user.username else 'N/A'}"
         )
-        try:
-            welcome_message = await message.reply_text(
-                text=welcome_text,
-                reply_markup=reply_markup,
-                disable_web_page_preview=True,
-                quote=True,
-                parse_mode=ParseMode.MARKDOWN
-            )
-            asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
-        except Exception as e:
-            logger.error(f"Error sending welcome message to user {user_id}: {e}")
+        welcome_message = await message.reply_text(
+            text=welcome_text,
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+            quote=True,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
         return
-        
+
+
 # Callback Query Handler for Token Count
 
 @Bot.on_callback_query(filters.regex(r"^check_tokens$"))
@@ -455,13 +438,24 @@ async def check_tokens_callback(client: Client, callback_query: CallbackQuery):
             # For admins, display more detailed stats
             users = await full_userbase()  # Ensure this function is defined
             user_token_details = ""
-            top_users = sorted(
-                users,
-                key=lambda uid: await get_user_token_count(uid),
+            user_token_counts = {}
+            for uid in users:
+                try:
+                    token_count = await get_user_token_count(uid)
+                    user_token_counts[uid] = token_count
+                except Exception as e:
+                    logger.error(f"Error fetching token count for user {uid}: {e}")
+                    user_token_counts[uid] = 0  # Default to 0 if there's an error
+
+            # Sort users based on token counts
+            sorted_users = sorted(
+                user_token_counts,
+                key=lambda uid: user_token_counts[uid],
                 reverse=True
             )[:10]  # Top 10 users
-            for user in top_users:
-                tokens = await get_user_token_count(user)
+
+            for user in sorted_users:
+                tokens = user_token_counts[user]
                 user_token_details += f"• **User ID:** `{user}` - **Tokens:** `{tokens}`\n"
 
             response = (
@@ -575,13 +569,24 @@ async def token_count_command(client: Client, message: Message):
             # For admins, display more detailed stats
             users = await full_userbase()  # Ensure this function is defined
             user_token_details = ""
-            top_users = sorted(
-                users,
-                key=lambda uid: await get_user_token_count(uid),
+            user_token_counts = {}
+            for uid in users:
+                try:
+                    token_count = await get_user_token_count(uid)
+                    user_token_counts[uid] = token_count
+                except Exception as e:
+                    logger.error(f"Error fetching token count for user {uid}: {e}")
+                    user_token_counts[uid] = 0  # Default to 0 if there's an error
+
+            # Sort users based on token counts
+            sorted_users = sorted(
+                user_token_counts,
+                key=lambda uid: user_token_counts[uid],
                 reverse=True
             )[:10]  # Top 10 users
-            for user in top_users:
-                tokens = await get_user_token_count(user)
+
+            for user in sorted_users:
+                tokens = user_token_counts[user]
                 user_token_details += f"• **User ID:** `{user}` - **Tokens:** `{tokens}`\n"
 
             response = (
@@ -610,6 +615,15 @@ async def token_count_command(client: Client, message: Message):
         logger.error(f"Error in token_count_command: {e}")
         await message.reply_text("❌ An error occurred while fetching token statistics.")
 
+
+# Handler for Users Not Joined to Required Channels (Assuming Verification)
+@Bot.on_message(filters.command("start") & filters.private)
+async def not_joined(client: Client, message: Message):
+    """Handles /start command when user hasn't joined required channels."""
+    try:
+        # List of channel invite links (add your channel invite links here)
+        channel_links = [
+            "https://t.me/yourchannel
 
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
