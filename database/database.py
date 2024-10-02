@@ -89,11 +89,12 @@ mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 
 client = AsyncIOMotorClient(MONGO_URI)
+dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
+
 #client = MongoClient(DB_URI)
 db = client[DB_NAME]
 users = db["users"]
 
-dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
 database = dbclient[DB_NAME]
 
 # Collections
