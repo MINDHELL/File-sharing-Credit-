@@ -15,7 +15,6 @@ db = mongo_client[DB_NAME]
 client = AsyncIOMotorClient(MONGO_URI)
 dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
 
-#client = MongoClient(DB_URI)
 db = client[DB_NAME]
 users = db["users"]
 
@@ -114,7 +113,7 @@ async def get_user_limit(id):
     return user.get("limit", 0) if user else 0
 """
 async def get_verify_status(id):
-    user = users.find_one({"_id": id})
+    user = user_data.find_one({"_id": id})
     return user if user else {"is_verified": False, "verify_token": "", "verified_time": 0}
 
 async def update_verify_status(id, is_verified=None, verify_token=None, verified_time=None):
@@ -126,5 +125,5 @@ async def update_verify_status(id, is_verified=None, verify_token=None, verified
     if verified_time is not None:
         update_fields["verified_time"] = verified_time
 
-    users.update_one({"_id": id}, {"$set": update_fields})
+    user_data.update_one({"_id": id}, {"$set": update_fields})
 
