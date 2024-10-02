@@ -19,6 +19,10 @@ default_verify = {
 client = MongoClient(DB_URI)
 db = client[DB_NAME]
 users = db["users"]
+dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
+database = dbclient[DB_NAME]
+
+user_data = database['users']
 
 async def add_user(id):
     users.insert_one({"_id": id, "limit": 10, "is_verified": False, "verify_token": "", "verified_time": 0})
@@ -80,6 +84,15 @@ db = mongo_client[DB_NAME]
 # Collections
 users_collection = db["users"]  # Collection for users
 tokens_collection = db["tokens"]  # Collection for token counts
+
+client = MongoClient(DB_URI)
+db = client[DB_NAME]
+users = db["users"]
+
+dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
+database = dbclient[DB_NAME]
+
+user_data = database['users']
 
 # Default user data structure
 default_user = {
