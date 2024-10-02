@@ -106,7 +106,7 @@ async def db_update_verify_status(user_id, verify):
     await user_data.update_one({'_id': user_id}, {'$set': {'verify_status': verify}})
 
 async def update_user_limit(id, limit):
-    users_data.update_one({"_id": id}, {"$set": {"limit": limit}})
+    user_data.update_one({"_id": id}, {"$set": {"limit": limit}})
     
 """
 async def get_user_limit(id):
