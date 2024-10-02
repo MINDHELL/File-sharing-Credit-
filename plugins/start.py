@@ -216,7 +216,7 @@ async def count_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while retrieving count data.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
-
+"""
 @Bot.on_message(filters.command("start") & filters.private)
 async def start_command(client: Client, message: Message):
     """Handles the /start command with token verification and user registration."""
@@ -419,7 +419,186 @@ async def start_command(client: Client, message: Message):
         )
         asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
         return
+"""
 
+@Client.on_message(filters.command('start') & filters.private)
+async def start_command(client: Client, message: Message):
+    user_id = message.from_user.id
+
+    # Ensure user exists in the database
+    if not await present_user(user_id):
+        try:
+            await add_user(user_id)
+        except Exception as e:
+            logger.error(f"Error adding user: {e}")
+
+    # Retrieve user data
+    user_data = await user_collection.find_one({"_id": user_id})
+    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_data.get("previous_token")
+
+    # Generate a new token only if previous_token is not available
+    if not previous_token:
+        previous_token = str(uuid.uuid4())
+        await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
+
+    # Generate the verification link
+    verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
+    shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
+
+    # Check if the user is providing a verification token
+    if len(message.text) > 7 and "verify_" in message.text:
+        provided_token = message.text.split("verify_", 1)[1]
+        if provided_token == previous_token:
+            # Verification successful, increase limit by 10
+            await update_user_limit(user_id, user_limit + LIMIT_INCREASE_AMOUNT)
+            await log_verification(user_id)
+            confirmation_message = await message.reply_text("Your limit has been successfully increased by 10! , use /check cmd check your credits")
+            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+            return
+        else:
+            error_message = await message.reply_text("Invalid verification token. Please try again.")
+            asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+            return
+
+    # If the limit is reached, prompt the user to use the verification link
+    if user_limit <= 0:
+        limit_message = "Your limit has been reached , use /check cmd check your credits. Use the following link to increase your limit "
+        buttons = []
+
+        try:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text='Increase LIMIT',
+                        url=shortened_link
+                    )
+                ]
+            )
+        except IndexError:
+            logger.error("IndexError: message.command[1] is missing or invalid")
+
+        # Ensure message.command has at least 2 elements before accessing message.command[1]
+        try:
+            try_again_button = InlineKeyboardButton(
+                'Try Again',
+                url=f"https://t.me/{client.username}?start=default"
+            )
+            buttons.append([try_again_button])
+        except IndexError:
+            logger.error("IndexError: message.command[1] is missing or invalid")
+            buttons.append(
+                [
+                    InlineKeyboardButton('Try Again', url=f"https://t.me/{client.username}?start=default")
+                ]
+            )
+
+        buttons.append(
+            [
+                InlineKeyboardButton('Verification Tutorial', url=TUT_VID)
+            ]
+        )
+        
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await message.reply(limit_message, reply_markup=reply_markup, protect_content=False, quote=True)
+        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+        return
+
+    # Deduct 1 from the user's limit and continue with the normal start command process
+    await update_user_limit(user_id, user_limit - 1)
+
+    text = message.text
+    if len(text) > 7:
+        try:
+            base64_string = text.split(" ", 1)[1]
+        except IndexError:
+            return
+        
+        string = await decode(base64_string)
+        argument = string.split("-")
+        
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+            
+            if start <= end:
+                ids = range(start, end + 1)
+            else:
+                ids = list(range(start, end - 1, -1))
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+        
+        temp_msg = await message.reply("Please wait...")
+        try:
+            messages = await get_messages(client, ids)
+        except Exception as e:
+            await message.reply_text("Something went wrong..!")
+            logger.error(f"Error getting messages: {e}")
+            return
+        
+        await temp_msg.delete()
+
+        for msg in messages:
+            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                            filename=msg.document.file_name) if bool(CUSTOM_CAPTION) & bool(msg.document) else "" if not msg.caption else msg.caption.html
+
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
+
+            try:
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
+                pass
+        return
+    else:
+        reply_markup = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("😊 About Me", callback_data="about"),
+                    InlineKeyboardButton("🔒 Close", callback_data="close")
+                ]
+            ]
+        )
+        welcome_message = await message.reply_text(
+            text=START_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+            quote=True
+        )
+        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        return
 
 # Callback Query Handler for Token Count
 
