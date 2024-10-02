@@ -70,11 +70,16 @@ tz = pytz.timezone("Asia/Kolkata")
 mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 tokens_collection = db["tokens"]  # Collection for token counts
-users_collection = db["pusers"]  # Collection for users
+users_collection = db["pusers"]  # Collection for users =--> users_collection = db["users"]   # Collection for user data
+premium_users_collection = db["pusers"] # Collection for premium users
+#___--------
 
 # Initialize Shortzy for URL shortening
 shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
 
+def generate_token(length=10):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    
 # Helper Functions for Token Counting
 async def increment_token_count(user_id: int):
     """Increments the total token count for today and the user's token count."""
@@ -421,31 +426,150 @@ async def start_command(client: Client, message: Message):
         return
 """
 
+async def retrieve_files_for_premium(client, message):
+    # Your logic to retrieve files directly from the channel for premium users
+    text = message.text
+    if len(text) > 7:
+        try:
+            base64_string = text.split(" ", 1)[1]
+        except IndexError:
+            return
+
+        string = await decode(base64_string)
+        argument = string.split("-")
+
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+
+            if start <= end:
+                ids = range(start, end + 1)
+            else:
+                ids = list(range(start, end - 1, -1))
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+
+        temp_msg = await message.reply("Please wait...")
+        try:
+            messages = await get_messages(client, ids)
+        except Exception as e:
+            await message.reply_text("Something went wrong..!")
+            logger.error(f"Error getting messages: {e}")
+            return
+
+        await temp_msg.delete()
+
+        for msg in messages:
+            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                            filename=msg.document.file_name) if bool(CUSTOM_CAPTION) & bool(msg.document) else "" if not msg.caption else msg.caption.html
+
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
+
+            try:
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
+                pass
+        return
+        
+
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+    id = message.from_user.id
+    UBAN = BAN  # Owner's ID
 
-    # Ensure user exists in the database
+    # Check if the user is the owner (UBAN)
+    if user_id == UBAN:
+        await message.reply("You are the U-BAN! Additional actions can be added here.")
+        return
+
+    # Register the user if not present
     if not await present_user(user_id):
         try:
             await add_user(user_id)
+            logger.info(f"User {user_id} added to the database.")
         except Exception as e:
-            logger.error(f"Error adding user: {e}")
+            logger.error(f"Error adding user {user_id}: {e}")
+            await message.reply("An error occurred while registering you. Please try again later.")
+            return
+
+    # Retrieve or initialize user data
+    user_data = await users_collection.find_one({"user_id": user_id})
+    if not user_data:
+        await users_collection.insert_one({
+            "user_id": user_id,
+            "limit": START_COMMAND_LIMIT,
+            "previous_token": None,
+            "is_premium": False,
+            "is_verified": False
+        })
+        user_data = await users_collection.find_one({"user_id": user_id})
+
+    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_data.get("previous_token")
+
+    premium_status = await is_premium_user(user_id)  # Check if user is premium
+    verify_status = await get_verify_status(user_id)  # Ensure this function is defined
+
+    is_premium = user_data.get("is_premium", False)
+
+    # Generate a new token if not present
+    if not previous_token:
+        previous_token = str(uuid.uuid4())
+        await users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"previous_token": previous_token}},
+            upsert=True
+        )
+        logger.info(f"Generated new token for user {user_id}.")
 
     # Retrieve user data
     user_data = await users_collection.find_one({"_id": user_id})
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
 
-    # Generate a new token only if previous_token is not available
-    if not previous_token:
-        previous_token = str(uuid.uuid4())
-        await users_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
 
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
 
+    # Premium users have unlimited access
+    if is_premium:
+        # Premium users bypass the limit and token verification
+        premium_message = await message.reply("✅ You are a premium user with unlimited access.", quote=True)
+        asyncio.create_task(delete_message_after_delay(premium_message, AUTO_DELETE_DELAY))
+
+        # Directly retrieve the file from the channel or proceed with premium functionality
+        await retrieve_files_for_premium(client, message)
+        return
+        
     # Check if the user is providing a verification token
     if len(message.text) > 7 and "verify_" in message.text:
         provided_token = message.text.split("verify_", 1)[1]
@@ -453,13 +577,14 @@ async def start_command(client: Client, message: Message):
             # Verification successful, increase limit by 10
             await update_user_limit(user_id, user_limit + LIMIT_INCREASE_AMOUNT)
             await log_verification(user_id)
-            confirmation_message = await message.reply_text("Your limit has been successfully increased by 10! , use /check cmd check your credits")
+            confirmation_message = await message.reply_text("✅ Your limit has been successfully increased by 10! , use /check cmd check your credits")
             asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
             return
         else:
             error_message = await message.reply_text("Invalid verification token. Please try again.")
             asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
             return
+            
 
     # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
