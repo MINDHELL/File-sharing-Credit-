@@ -4,6 +4,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import motor.motor_asyncio
 from config import DB_URI as MONGO_URI , DB_NAME
 
+DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://ultroidxTeam:ultroidxTeam@cluster0.gabxs6m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_NAME = os.environ.get("DATABASE_NAME", "Cluser10")
+
+
 """
 import motor.motor_asyncio
 from config import DB_URI, DB_NAME
