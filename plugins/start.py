@@ -433,14 +433,14 @@ async def start_command(client: Client, message: Message):
             logger.error(f"Error adding user: {e}")
 
     # Retrieve user data
-    user_data = await user_collection.find_one({"_id": user_id})
+    user_data = await users_collection.find_one({"_id": user_id})
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
 
     # Generate a new token only if previous_token is not available
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
+        await users_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
 
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
