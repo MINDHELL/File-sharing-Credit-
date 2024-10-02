@@ -219,7 +219,7 @@ async def count_command(client: Client, message: Message):
 """
 @Bot.on_message(filters.command("start") & filters.private)
 async def start_command(client: Client, message: Message):
-    """Handles the /start command with token verification and user registration."""
+    # Handles the /start command with token verification and user registration.
     user_id = message.from_user.id
     user = message.from_user
 
