@@ -70,8 +70,8 @@ tz = pytz.timezone("Asia/Kolkata")
 mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 tokens_collection = db["tokens"]  # Collection for token counts
-users_collection = db["pusers"]  # Collection for users =--> users_collection = db["users"]   # Collection for user data
-premium_users_collection = db["pusers"] # Collection for premium users
+user_data = db["pusers"]  # Collection for users =--> user_data = db["users"]   # Collection for user data
+premium_user_data = db["pusers"] # Collection for premium users
 #___--------
 
 # Initialize Shortzy for URL shortening
@@ -129,7 +129,7 @@ async def get_user_token_count(user_id: int):
 async def add_premium_user(user_id, duration_in_days):
     """Adds a premium user with an expiry time."""
     expiry_time = time.time() + duration_in_days * 86400  # Convert days to seconds
-    await users_collection.update_one(
+    await user_data.update_one(
         {"user_id": user_id},
         {"$set": {"is_premium": True, "expiry_time": expiry_time}},
         upsert=True,
@@ -138,7 +138,7 @@ async def add_premium_user(user_id, duration_in_days):
 
 async def remove_premium_user(user_id):
     """Removes premium status from a user."""
-    await users_collection.update_one(
+    await user_data.update_one(
         {"user_id": user_id},
         {"$set": {"is_premium": False, "expiry_time": None}},
     )
@@ -146,7 +146,7 @@ async def remove_premium_user(user_id):
 
 async def get_user_subscription(user_id):
     """Fetches a user's subscription status and expiry time."""
-    user = await users_collection.find_one({"user_id": user_id})
+    user = await user_data.find_one({"user_id": user_id})
     if user:
         return user.get("is_premium", False), user.get("expiry_time", None)
     return False, None
@@ -244,7 +244,7 @@ async def start_command(client: Client, message: Message):
             return
 
     # Retrieve user data
-    user_data = await users_collection.find_one({"user_id": user_id})
+    user_data = await user_data.find_one({"user_id": user_id})
     if not user_data:
         logger.error(f"User data not found for user_id: {user_id}")
         await message.reply("An error occurred. Please try again later.")
@@ -259,7 +259,7 @@ async def start_command(client: Client, message: Message):
     # Generate a new token if not present
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        await users_collection.update_one(
+        await user_data.update_one(
             {"user_id": user_id},
             {"$set": {"previous_token": previous_token}},
             upsert=True,
@@ -521,19 +521,24 @@ async def start_command(client: Client, message: Message):
             return
 
     # Retrieve or initialize user data
-    user_data = await users_collection.find_one({"user_id": user_id})
+    user_data = await user_data.find_one({"user_id": user_id})
+
+    # Ensure user_data is not None before accessing fields
     if not user_data:
-        await users_collection.insert_one({
+        # Insert new user data if not present
+        await user_data.insert_one({
             "user_id": user_id,
             "limit": START_COMMAND_LIMIT,
             "previous_token": None,
             "is_premium": False,
             "is_verified": False
         })
-        user_data = await users_collection.find_one({"user_id": user_id})
+        user_data = await user_data.find_one({"user_id": user_id})  # Re-fetch the inserted data
 
+    # Now safely access user data fields
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
+    is_premium = user_data.get("is_premium", False)
 
     premium_status = await is_premium_user(user_id)  # Check if user is premium
     verify_status = await get_verify_status(user_id)  # Ensure this function is defined
@@ -543,7 +548,7 @@ async def start_command(client: Client, message: Message):
     # Generate a new token if not present
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        await users_collection.update_one(
+        await user_data.update_one(
             {"user_id": user_id},
             {"$set": {"previous_token": previous_token}},
             upsert=True
@@ -551,7 +556,7 @@ async def start_command(client: Client, message: Message):
         logger.info(f"Generated new token for user {user_id}.")
 
     # Retrieve user data
-    user_data = await users_collection.find_one({"_id": user_id})
+    user_data = await user_data.find_one({"_id": user_id})
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
 
