@@ -19,7 +19,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(
             text=f"<b>○ Creator : <a href='tg://user?id={OWNER_ID}'>This Person</a>\n"
                  f"○ Language : <code>Python3</code>\n"
-                 f"○ Library : <a href='https://docs.pyrogram.org/'>Pyrogram asyncio {Client.__version__}</a>\n"
                  f"○ Source Code : <a href='https://github.com/YourRepo'>Click here</a>\n"
                  f"○ Channel : @{CHANNEL}\n"
                  f"○ Support Group : @{SUPPORT_GROUP}</b>",
