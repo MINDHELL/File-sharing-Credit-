@@ -76,7 +76,7 @@ async def update_verify_status(id, is_verified=None, verify_token=None, verified
 """
 from motor.motor_asyncio import AsyncIOMotorClient
 import motor.motor_asyncio
-from config import DB_URI, DB_NAME
+from config import DB_URI as MONGO_URI , DB_NAME
 
 # Initialize MongoDB Client
 mongo_client = AsyncIOMotorClient(DB_URI)
