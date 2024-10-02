@@ -50,7 +50,7 @@ from helper_func import (
     update_verify_status,
     get_exp_time,
 )
-from database.database import add_user, del_user, full_userbase, present_user
+from database.database import *
 from shortzy import Shortzy
 
 # Constants (Ensure these are defined appropriately)
