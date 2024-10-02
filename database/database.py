@@ -74,16 +74,12 @@ async def update_verify_status(id, is_verified=None, verify_token=None, verified
 
 # db.py
 """
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio
 from config import DB_URI, DB_NAME
 
 # Initialize MongoDB Client
 mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
-
-# Collections
-users_collection = db["users"]  # Collection for users
-tokens_collection = db["tokens"]  # Collection for token counts
 
 client = MongoClient(DB_URI)
 db = client[DB_NAME]
@@ -92,7 +88,13 @@ users = db["users"]
 dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
 database = dbclient[DB_NAME]
 
+# Collections
 user_data = database['users']
+users_collection = db["users"]  # Collection for users
+tokens_collection = db["tokens"]  # Collection for token counts
+
+#---------------
+
 
 # Default user data structure
 default_user = {
