@@ -337,9 +337,7 @@ async def start_command(client: Client, message: Message):
     user_limit = user_info.get("limit", START_COMMAND_LIMIT)
     previous_token = user_info.get("previous_token")
     is_premium = user_info.get("is_premium", False)
-
-    
-
+ 
     premium_status = await is_premium_user(user_id)  # Check if user is premium
     verify_status = await get_verify_status(user_id)  # Ensure this function is defined
 
@@ -352,11 +350,6 @@ async def start_command(client: Client, message: Message):
             upsert=True
         )
         logger.info(f"Generated new token for user {user_id}.")
-
-    # Retrieve user data
-    #user_data = await user_data.find_one({"_id": user_id})
-    #user_limit = user_data.get("limit", START_COMMAND_LIMIT)
-    #previous_token = user_data.get("previous_token")
 
 
     # Generate the verification link
@@ -379,7 +372,7 @@ async def start_command(client: Client, message: Message):
         if provided_token == previous_token:
             # Verification successful, increase limit by 10
             await update_user_limit(user_id, user_limit + LIMIT_INCREASE_AMOUNT)
-            await log_verification(user_id)
+            #await log_verification(user_id)
             confirmation_message = await message.reply_text("✅ Your limit has been successfully increased by 10! , use /check cmd check your credits")
             asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
             return
