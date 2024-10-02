@@ -98,7 +98,7 @@ database = dbclient[DB_NAME]
 
 # Collections
 user_data = database['users']
-users_collection = db["users"]  # Collection for users
+user_data = db["users"]  # Collection for users
 tokens_collection = db["tokens"]  # Collection for token counts
 
 #---------------
@@ -118,33 +118,33 @@ default_user = {
 async def add_user(user_id: int):
     user = default_user.copy()
     user["_id"] = user_id
-    await users_collection.insert_one(user)
+    await user_data.insert_one(user)
 
 # Check if user exists
 async def present_user(user_id: int) -> bool:
-    user = await users_collection.find_one({'_id': user_id})
+    user = await user_data.find_one({'_id': user_id})
     return bool(user)
 
 # Get user data
 async def get_user_data(user_id: int):
-    user = await users_collection.find_one({'_id': user_id})
+    user = await user_data.find_one({'_id': user_id})
     if not user:
         # If user doesn't exist, add them
         await add_user(user_id)
-        user = await users_collection.find_one({'_id': user_id})
+        user = await user_data.find_one({'_id': user_id})
     return user
 
 # Update user data
 async def update_user_data(user_id: int, data: dict):
-    await users_collection.update_one({'_id': user_id}, {'$set': data})
+    await user_data.update_one({'_id': user_id}, {'$set': data})
 
 # Delete user
 async def del_user(user_id: int):
-    await users_collection.delete_one({'_id': user_id})
+    await user_data.delete_one({'_id': user_id})
 
 # Get all user IDs
 async def full_userbase():
-    user_docs = users_collection.find()
+    user_docs = user_data.find()
     user_ids = [doc['_id'] async for doc in user_docs]
     return user_ids
 
@@ -157,10 +157,10 @@ async def get_token(user_id: int) -> str:
     return user.get('verify_token', "")
 
 async def increment_user_limit(user_id: int, amount: int = 10):
-    await users_collection.update_one({'_id': user_id}, {'$inc': {'limit': amount}})
+    await user_data.update_one({'_id': user_id}, {'$inc': {'limit': amount}})
 
 async def decrement_user_limit(user_id: int, amount: int = 1):
-    await users_collection.update_one({'_id': user_id}, {'$inc': {'limit': -amount}})
+    await user_data.update_one({'_id': user_id}, {'$inc': {'limit': -amount}})
 
 async def get_user_limit(user_id: int) -> int:
     user = await get_user_data(user_id)
