@@ -616,14 +616,6 @@ async def token_count_command(client: Client, message: Message):
         await message.reply_text("❌ An error occurred while fetching token statistics.")
 
 
-# Handler for Users Not Joined to Required Channels (Assuming Verification)
-@Bot.on_message(filters.command("start") & filters.private)
-async def not_joined(client: Client, message: Message):
-    """Handles /start command when user hasn't joined required channels."""
-    try:
-        # List of channel invite links (add your channel invite links here)
-        channel_links = [
-            "https://t.me/yourchannel
 
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
