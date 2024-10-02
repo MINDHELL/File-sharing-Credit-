@@ -594,47 +594,42 @@ async def token_count_command(client: Client, message: Message):
         await message.reply_text("❌ An error occurred while fetching token statistics.")
 
 
-# Handler for Users Not Joined to Required Channels (Assuming Verification)
-@Bot.on_message(filters.command("start") & filters.private)
+@Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
-    """Handles /start command when user hasn't joined required channels."""
-    try:
-        # List of channel invite links (add your channel invite links here)
-        channel_links = [
-            "https://t.me/yourchannel1",
-            "https://t.me/yourchannel2",
-            "https://t.me/yourchannel3",
+    buttons = [
+        [
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink),
+            #InlineKeyboardButton(text="Join Channel", url=client.invitelink2),
+        ],
+        [
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink3),
+            #InlineKeyboardButton(text="Join Channel", url=client.invitelink4),
         ]
-
-        buttons = [
-            [InlineKeyboardButton(text="🔗 Join Channel 1", url=channel_links[0])],
-            [InlineKeyboardButton(text="🔗 Join Channel 2", url=channel_links[1])],
-            [InlineKeyboardButton(text="🔗 Join Channel 3", url=channel_links[2])],
+    ]
+    try:
+        buttons.append(
             [
                 InlineKeyboardButton(
-                    text="🔄 Try Again",
-                    url=f"https://t.me/{CLIENT_USERNAME}?start=default"
+                    text = 'Try Again',
+                    url = f"https://t.me/{client.username}?start={message.command[1]}"
                 )
             ]
-        ]
-
-        await message.reply(
-            text=FORCE_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name or "",
-                username=f"@{message.from_user.username}" if message.from_user.username else "N/A",
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            quote=True,
-            disable_web_page_preview=True,
-            parse_mode=ParseMode.HTML
         )
-    except Exception as e:
-        logger.error(f"Error in not_joined handler: {e}")
-        await message.reply_text("❌ An error occurred. Please try again later.")
+    except IndexError:
+        pass
 
+    await message.reply(
+        text = FORCE_MSG.format(
+                first = message.from_user.first_name,
+                last = message.from_user.last_name,
+                username = None if not message.from_user.username else '@' + message.from_user.username,
+                mention = message.from_user.mention,
+                id = message.from_user.id
+            ),
+        reply_markup = InlineKeyboardMarkup(buttons),
+        quote = True,
+        disable_web_page_preview = True
+    )
 
 # Credits (Optional: You can remove or modify this section as needed)
 """
