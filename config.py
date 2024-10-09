@@ -6,6 +6,12 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
+
+
+START_COMMAND_LIMIT = 15  # Default limit for new users
+LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verification
+AUTO_DELETE_DELAY = 600 
+
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7413748827:AAHGW5KP6V8CPIhE3sUJPwdHAUq7MkNKzRo")
 APP_ID = int(os.environ.get("APP_ID", "22505271"))
 API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
