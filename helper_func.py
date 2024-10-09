@@ -1,43 +1,72 @@
-#(©)Codexbotz
+#ultroidxTeam (admin - TG )
+#import logging
 
 import base64
 import re
 import asyncio
 from pyrogram import filters
 from pyrogram.enums import ChatMemberStatus
-from config import FORCE_SUB_CHANNEL, ADMINS
+from config import FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, FORCE_SUB_CHANNEL3, FORCE_SUB_CHANNEL4, ADMINS
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrogram.errors import FloodWait, UserNotParticipant, ChatAdminRequired
+from pyrogram.errors import FloodWait
 
 async def is_subscribed(filter, client, update):
-    if not FORCE_SUB_CHANNEL:
+    if not (FORCE_SUB_CHANNEL or FORCE_SUB_CHANNEL2 or FORCE_SUB_CHANNEL3 or FORCE_SUB_CHANNEL4):
         return True
+
     user_id = update.from_user.id
+
     if user_id in ADMINS:
         return True
-    try:
-        member = await client.get_chat_member(chat_id = FORCE_SUB_CHANNEL, user_id = user_id)
-    except UserNotParticipant:
-        return False
 
-    if not member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]:
-        return False
-    else:
-        return True
+    member_status = ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER
 
+    for channel_id in [FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, FORCE_SUB_CHANNEL3, FORCE_SUB_CHANNEL4]:
+        if not channel_id:
+            continue
+
+        try:
+            member = await client.get_chat_member(chat_id=channel_id, user_id=user_id)
+        except UserNotParticipant:
+            return False
+
+        if member.status not in member_status:
+            return False
+
+    return True
 
 async def encode(string):
     string_bytes = string.encode("ascii")
     base64_bytes = base64.urlsafe_b64encode(string_bytes)
     base64_string = (base64_bytes.decode("ascii")).strip("=")
     return base64_string
-
+"""
 async def decode(base64_string):
-    base64_string = base64_string.strip("=") # links generated before this commit will be having = sign, hence striping them to handle padding errors.
+    base64_string = base64_string.strip("=")
     base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
-    string_bytes = base64.urlsafe_b64decode(base64_bytes) 
+    string_bytes = base64.urlsafe_b64decode(base64_bytes)
     string = string_bytes.decode("ascii")
     return string
+"""
+
+async def decode(base64_string):
+    # Determine if it's a 'limit' link or a regular start link
+    if base64_string.startswith("limit_"):
+        base64_string = base64_string.replace("limit_", "", 1)  # Remove the 'limit_' prefix
+
+    # Standard base64 decoding process
+    base64_string = base64_string.strip("=")
+    base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("utf-8")
+
+    try:
+        string_bytes = base64.urlsafe_b64decode(base64_bytes)
+        string = string_bytes.decode("utf-8")  # Decode with utf-8
+    except UnicodeDecodeError:
+        # Handle decoding errors for any special cases
+        string = string_bytes.decode("latin-1")  # Fallback decoding
+    
+    return string
+
 
 async def get_messages(client, message_ids):
     messages = []
@@ -71,7 +100,7 @@ async def get_message_id(client, message):
         return 0
     elif message.text:
         pattern = "https://t.me/(?:c/)?(.*)/(\d+)"
-        matches = re.match(pattern,message.text)
+        matches = re.match(pattern, message.text)
         if not matches:
             return 0
         channel_id = matches.group(1)
@@ -84,7 +113,6 @@ async def get_message_id(client, message):
                 return msg_id
     else:
         return 0
-
 
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -106,6 +134,5 @@ def get_readable_time(seconds: int) -> str:
     time_list.reverse()
     up_time += ":".join(time_list)
     return up_time
-
 
 subscribed = filters.create(is_subscribed)
