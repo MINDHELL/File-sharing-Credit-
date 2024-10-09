@@ -71,9 +71,9 @@ mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 database = mongo_client[DB_NAME]
 tokens_collection = db["tokens"]  # Collection for token counts
-user_data = db["users"]  # Collection for users =--> user_data = db["users"]   # Collection for user data
-premium_user_data = db["pusers"] # Collection for premium users
-user_data = database['users']
+user_data = db["users"]  # Ensure 'user_data' is assigned once
+premium_user_data = db["pusers"]  # Collection for premium users
+tokens_collection = db["tokens"]  # Collection for token counts
 
 
 #___--------
