@@ -1,54 +1,97 @@
+from motor.motor_asyncio import AsyncIOMotorClient
+from config import DB_URI, DB_NAME , START_COMMAND_LIMIT
+from datetime import datetime, timedelta
 
-from config import DB_URI, DB_NAME
-from pymongo import MongoClient
+mongo_client = AsyncIOMotorClient(DB_URI)
+db = mongo_client[DB_NAME]
 
-client = MongoClient(DB_URI)
-db = client[DB_NAME]
-users = db["users"]
+user_collection = db['user_collection']
+token_collection = db['tokens']
+user_data = db['users']
 
-async def add_user(id):
-    users.insert_one({"_id": id, "limit": 10, "is_verified": False, "verify_token": "", "verified_time": 0})
+verification_log_collection = db['verification_logs']
 
-async def present_user(user_id: int):
-    found = await user_data.find_one({'_id': user_id})
+async def log_verification(user_id):
+    await verification_log_collection.insert_one({
+        "user_id": user_id,
+        "timestamp": datetime.utcnow()
+    })
+
+
+async def get_verification_count(timeframe):
+    current_time = datetime.utcnow()
+    
+    if timeframe == "24h":
+        start_time = current_time - timedelta(hours=24)
+    elif timeframe == "today":
+        start_time = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif timeframe == "monthly":
+        start_time = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    count = await verification_log_collection.count_documents({
+        "timestamp": {"$gte": start_time, "$lt": current_time}
+    })
+    
+    return count
+
+async def cleanup_old_logs():
+    expiry_time = datetime.utcnow() - timedelta(hours=24)
+    await verification_log_collection.delete_many({
+        "timestamp": {"$lt": expiry_time}
+    })
+    
+async def get_previous_token(user_id):
+    user_data = await user_collection.find_one({"_id": user_id})
+    return user_data.get("previous_token", None)
+
+async def set_previous_token(user_id, token):
+    await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": token}})
+    
+async def add_user(user_id):
+    await user_collection.insert_one({
+        "_id": user_id,
+        "limit": START_COMMAND_LIMIT
+    })
+"""
+async def present_user(user_id : int):
+    found = user_data.find_one({'_id': user_id})
     return bool(found)
+    """
 
-async def db_verify_status(user_id):
-    user = await user_data.find_one({'_id': user_id})
-    if user:
-        return user.get('verify_status', default_verify)
-    return default_verify
-
-async def db_update_verify_status(user_id, verify):
-    await user_data.update_one({'_id': user_id}, {'$set': {'verify_status': verify}})
+async def present_user(user_id):
+    user_data = await user_collection.find_one({"_id": user_id})
+    return user_data is not None
 
 async def full_userbase():
-    user_docs = user_data.find()
-    user_ids = [doc['_id'] async for doc in user_docs]
-    return user_ids
+    user_docs = user_collection.find()
+    user_ids = []
+    for doc in user_docs:
+        user_ids.append(doc['_id'])
 
 async def del_user(user_id: int):
-    await user_data.delete_one({'_id': user_id})
+    user_data.delete_one({'_id': user_id})
     return
 
-async def update_user_limit(id, limit):
-    users.update_one({"_id": id}, {"$set": {"limit": limit}})
+async def get_user_limit(user_id):
+    user_data = await user_collection.find_one({"_id": user_id})
+    if user_data:
+        return user_data.get('limit', 0)
+    return 0
 
-async def get_user_limit(id):
-    user = users.find_one({"_id": id})
-    return user.get("limit", 0) if user else 0
+async def update_user_limit(user_id, new_limit):
+    await user_collection.update_one({"_id": user_id}, {"$set": {"limit": new_limit}})
 
-async def get_verify_status(id):
-    user = users.find_one({"_id": id})
-    return user if user else {"is_verified": False, "verify_token": "", "verified_time": 0}
+async def store_token(user_id, token):
+    await token_collection.insert_one({
+        "user_id": user_id,
+        "token": token,
+        "used": False
+    })
 
-async def update_verify_status(id, is_verified=None, verify_token=None, verified_time=None):
-    update_fields = {}
-    if is_verified is not None:
-        update_fields["is_verified"] = is_verified
-    if verify_token is not None:
-        update_fields["verify_token"] = verify_token
-    if verified_time is not None:
-        update_fields["verified_time"] = verified_time
+async def verify_token(user_id, token):
+    token_data = await token_collection.find_one({"user_id": user_id, "token": token, "used": False})
+    if token_data:
+        await token_collection.update_one({"_id": token_data['_id']}, {"$set": {"used": True}})
+        return True
+    return False
 
-    users.update_one({"_id": id}, {"$set": update_fields})
