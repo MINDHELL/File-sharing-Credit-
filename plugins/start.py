@@ -1,158 +1,239 @@
 import asyncio
 import base64
-import time
+import logging
+import os
 import random
 import string
-from pyrogram import Client, filters
+from datetime import datetime, timedelta
+from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import FloodWait
-
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 from bot import Bot
 from config import *
-from helper_func import subscribed, encode, decode, get_messages, get_shortlink, get_verify_status, update_verify_status, get_exp_time
-from database.database import add_user, present_user, update_user_limit, get_user_limit
+from helper_func import subscribed, encode, decode, get_messages
+from database.database import (
+    log_verification, get_verification_count, cleanup_old_logs, present_user,
+    get_previous_token, set_previous_token, del_user, full_userbase, add_user,
+    get_user_limit, update_user_limit, store_token, verify_token, user_collection,
+    token_collection
+)
+import uuid
+from shortzy import Shortzy
 
-# Auto-delete function to delete messages after a specific time
-async def auto_delete_messages(client, messages, delay=600):
+# Initialize Shortzy
+shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def get_shortlink(url, api, link):
+    try:
+        verification_link = await shortzy.convert(link)
+        return verification_link
+    except Exception as e:
+        logger.error(f"Error generating short link: {str(e)}")
+        return link
+
+async def delete_message_after_delay(message: Message, delay: int):
     await asyncio.sleep(delay)
-    for message in messages:
-        try:
-            await client.delete_messages(chat_id=message.chat.id, message_ids=message.id)
-        except Exception as e:
-            print(f"Failed to delete message {message.id}: {str(e)}")
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
-async def start_command(client: Client, message: Message):
-    id = message.from_user.id
-    owner_id = int(OWNER_ID)  # Fetch the owner's ID from config
-    
-    # Check if the user is the owner
-    if id == owner_id:
-        # Owner-specific actions: unlimited access
-        await message.reply("You are the owner and have unlimited access.")
-        return
+@Client.on_message(filters.command('check') & filters.private)
+async def check_command(client: Client, message: Message):
+    user_id = message.from_user.id
 
-    if not await present_user(id):
-        try:
-            await add_user(id)
-        except:
-            pass
+    try:
+        user_limit = await get_user_limit(user_id)
+        limit_message = await message.reply_text(f"Your current limit is {user_limit}.")
+        asyncio.create_task(delete_message_after_delay(limit_message, AUTO_DELETE_DELAY))
+    except Exception as e:
+        logger.error(f"Error in check_command: {e}")
+        error_message = await message.reply_text("An error occurred while checking your limit.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+		
+@Client.on_message(filters.command('count') & filters.private)
+async def count_command(client: Client, message: Message):
+    try:
+        # Get the count of users who used a token in the last 24 hours
+        last_24h_count = await get_verification_count("24h")
 
-    # Get user limit from the database
-    user_limit = await get_user_limit(id)
+        # Get the count of users who used a token today
+        today_count = await get_verification_count("today")
 
-    if user_limit is None:
-        await update_user_limit(id, limit=5)
-        user_limit = 5
-
-    if user_limit <= 0:
-        # Send verification message if limit is reached
-        token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-        await update_verify_status(id, verify_token=token, link="")
-        link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
-        btn = [
-            [InlineKeyboardButton("Click here to Continue", url=link)],
-            [InlineKeyboardButton('Verification Tutorial', url=TUT_VID)]
-        ]
-        await message.reply(
-            f"Your limit has been reached. Please verify to get more access.",
-            reply_markup=InlineKeyboardMarkup(btn),
-            protect_content=False,
-            quote=True
+        count_message = (
+            f"Token usage stats:\n"
+            f"Last 24 hours: {last_24h_count} users\n"
+            f"Today's token users: {today_count} users"
         )
+        
+        response_message = await message.reply_text(count_message)
+        asyncio.create_task(delete_message_after_delay(response_message, AUTO_DELETE_DELAY))
+
+    except Exception as e:
+        logger.error(f"Error in count_command: {e}")
+        error_message = await message.reply_text("An error occurred while retrieving count data.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+
+@Client.on_message(filters.command('start') & filters.private)
+async def start_command(client: Client, message: Message):
+    user_id = message.from_user.id
+
+    # Ensure user exists in the database
+    if not await present_user(user_id):
+        try:
+            await add_user(user_id)
+        except Exception as e:
+            logger.error(f"Error adding user: {e}")
+
+    # Retrieve user data
+    user_data = await user_collection.find_one({"_id": user_id})
+    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_data.get("previous_token")
+
+    # Generate a new token only if previous_token is not available
+    if not previous_token:
+        previous_token = str(uuid.uuid4())
+        await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
+
+    # Generate the verification link
+    verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
+    shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
+
+    # Check if the user is providing a verification token
+    if len(message.text) > 7 and "verify_" in message.text:
+        provided_token = message.text.split("verify_", 1)[1]
+        if provided_token == previous_token:
+            # Verification successful, increase limit by 10
+            await update_user_limit(user_id, user_limit + LIMIT_INCREASE_AMOUNT)
+            await log_verification(user_id)
+            confirmation_message = await message.reply_text("Your limit has been successfully increased by 10! , use /check cmd check your credits")
+            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+            return
+        else:
+            error_message = await message.reply_text("Invalid verification token. Please try again.")
+            asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+            return
+
+    # If the limit is reached, prompt the user to use the verification link
+    if user_limit <= 0:
+        limit_message = "Your limit has been reached , use /check cmd check your credits. Use the following link to increase your limit "
+        buttons = []
+
+        try:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text='Increase LIMIT',
+                        url=shortened_link
+                    )
+                ]
+            )
+        except IndexError:
+            logger.error("IndexError: message.command[1] is missing or invalid")
+
+        # Ensure message.command has at least 2 elements before accessing message.command[1]
+        try:
+            try_again_button = InlineKeyboardButton(
+                'Try Again',
+                url=f"https://t.me/{client.username}?start=default"
+            )
+            buttons.append([try_again_button])
+        except IndexError:
+            logger.error("IndexError: message.command[1] is missing or invalid")
+            buttons.append(
+                [
+                    InlineKeyboardButton('Try Again', url=f"https://t.me/{client.username}?start=default")
+                ]
+            )
+
+        buttons.append(
+            [
+                InlineKeyboardButton('Verification Tutorial', url=TUT_VID)
+            ]
+        )
+        
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await message.reply(limit_message, reply_markup=reply_markup, protect_content=False, quote=True)
+        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
         return
 
-    if "verify_" in message.text:
-        _, token = message.text.split("_", 1)
-        verify_status = await get_verify_status(id)
-        if verify_status['verify_token'] != token:
-            return await message.reply("Your token is invalid or expired. Try again by clicking /start")
-        await update_verify_status(id, is_verified=True, verified_time=time.time())
-        await update_user_limit(id, limit=5)
-        await message.reply("Your token has been successfully verified, and your limit has been reset.")
+    # Deduct 1 from the user's limit and continue with the normal start command process
+    await update_user_limit(user_id, user_limit - 1)
 
-    elif len(message.text) > 7:
+    text = message.text
+    if len(text) > 7:
         try:
-            base64_string = message.text.split(" ", 1)[1]
-        except:
+            base64_string = text.split(" ", 1)[1]
+        except IndexError:
             return
-        _string = await decode(base64_string)
-        argument = _string.split("-")
+        
+        string = await decode(base64_string)
+        argument = string.split("-")
+        
         if len(argument) == 3:
             try:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
-            except:
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
                 return
+            
             if start <= end:
                 ids = range(start, end + 1)
             else:
-                ids = []
-                i = start
-                while True:
-                    ids.append(i)
-                    i -= 1
-                    if i < end:
-                        break
+                ids = list(range(start, end - 1, -1))
         elif len(argument) == 2:
             try:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except:
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
                 return
+        
         temp_msg = await message.reply("Please wait...")
         try:
             messages = await get_messages(client, ids)
-        except:
+        except Exception as e:
             await message.reply_text("Something went wrong..!")
+            logger.error(f"Error getting messages: {e}")
             return
+        
         await temp_msg.delete()
 
-        snt_msgs = []
-
         for msg in messages:
-            if bool(CUSTOM_CAPTION) & bool(msg.document):
-                caption = CUSTOM_CAPTION.format(
-                    previouscaption="" if not msg.caption else msg.caption.html,
-                    filename=msg.document.file_name
-                )
-            else:
-                caption = "" if not msg.caption else msg.caption.html
+            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                            filename=msg.document.file_name) if bool(CUSTOM_CAPTION) & bool(msg.document) else "" if not msg.caption else msg.caption.html
 
-            if DISABLE_CHANNEL_BUTTON:
-                reply_markup = msg.reply_markup
-            else:
-                reply_markup = None
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
 
             try:
-                snt_msg = await msg.copy(
+                sent_message = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
                     reply_markup=reply_markup,
                     protect_content=PROTECT_CONTENT
                 )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
                 await asyncio.sleep(0.5)
-                snt_msgs.append(snt_msg)
             except FloodWait as e:
                 await asyncio.sleep(e.x)
-                snt_msg = await msg.copy(
+                sent_message = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
                     reply_markup=reply_markup,
                     protect_content=PROTECT_CONTENT
                 )
-                snt_msgs.append(snt_msg)
-            except:
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
                 pass
-
-        # Decrease user limit by 1 after sending the files
-        await update_user_limit(id, limit=user_limit - 1)
-        
-        # Auto-delete the sent messages after 10 minutes
-        await auto_delete_messages(client, snt_msgs)
-
+        return
     else:
         reply_markup = InlineKeyboardMarkup(
             [
@@ -162,7 +243,7 @@ async def start_command(client: Client, message: Message):
                 ]
             ]
         )
-        await message.reply_text(
+        welcome_message = await message.reply_text(
             text=START_MSG.format(
                 first=message.from_user.first_name,
                 last=message.from_user.last_name,
@@ -174,8 +255,12 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        return
 
-#=====================================================================================##
+
+
+#=========================================================================================##
 
 WAIT_MSG = """"<b>Processing ...</b>"""
 
@@ -183,16 +268,18 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
 
 #=====================================================================================##
 
+    
+    
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
     buttons = [
         [
-            InlineKeyboardButton(text="Join Channel 1", url=client.invitelink),
-            InlineKeyboardButton(text="Join Channel 2", url=client.invitelink2),
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink),
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink2),
         ],
         [
-            InlineKeyboardButton(text="Join Channel 3", url=client.invitelink3),
-            #InlineKeyboardButton(text="Join Channel 4", url=client.invitelink4),
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink3),
+            #InlineKeyboardButton(text="Join Channel", url=client.invitelink4),
         ]
     ]
     try:
@@ -228,8 +315,6 @@ async def get_users(client: Bot, message: Message):
     users = await full_userbase()
     await msg.edit(f"{len(users)} users are using this bot")
 
-
-
 @Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
 async def send_text(client: Bot, message: Message):
     if message.reply_to_message:
@@ -262,7 +347,7 @@ async def send_text(client: Bot, message: Message):
             total += 1
         
         status = f"""<b><u>Broadcast Completed</u>
-@ultroidxTeam Present 
+
 Total Users: <code>{total}</code>
 Successful: <code>{successful}</code>
 Blocked Users: <code>{blocked}</code>
@@ -275,3 +360,6 @@ Unsuccessful: <code>{unsuccessful}</code></b>"""
         msg = await message.reply(REPLY_ERROR)
         await asyncio.sleep(8)
         await msg.delete()
+
+
+
