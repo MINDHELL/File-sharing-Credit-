@@ -16,7 +16,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Admin command to manually increase or decrease credits
-@Client.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command("givecredits") & filters.user(ADMINS))
 async def give_credits(client: Client, message: Message):
     try:
         _, user_id, credits = message.text.split()
@@ -29,7 +29,7 @@ async def give_credits(client: Client, message: Message):
         await message.reply(f"Error: {e}")
 
 # Admin command to add credits to a user
-@Client.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command('addcredits') & filters.private & filters.user(ADMINS))
 async def add_credits(client: Client, message: Message):
     user_id = message.from_user.id
 
@@ -60,7 +60,7 @@ async def add_credits(client: Client, message: Message):
         await message.reply_text("An error occurred while adding credits.")
 
 # Admin command to assign premium status and credits to a user
-@Client.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command('givepr') & filters.user(ADMINS))
 async def give_premium_status(client: Client, message: Message):
     if len(message.command) != 4:
         await message.reply_text("Usage: /givepr <user_id> <credits> <premium_status>")
@@ -139,7 +139,7 @@ async def check_command(client: Client, message: Message):
 @Client.on_message(filters.command('count') & filters.private)
 async def count_command(client: Client, message: Message):
     user_id = message.from_user.id
-    if user_id not in ADMIN_IDS:
+    if user_id not in ADMINS:
         await message.reply_text("You do not have permission to use this command.")
         return
     
