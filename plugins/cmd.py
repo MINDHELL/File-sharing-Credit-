@@ -116,7 +116,7 @@ async def check_premium_status(client: Client, message: Message):
         limit = user.get("limit", 0)
         await message.reply_text(f"🏆 **Premium Status:** {status}\n💳 **Credits:** {limit}")
     else:
-        await message.reply_text("You are not a premium user. \n**Credits:** {limit}" \nBecome Premium user /plans")
+        await message.reply_text("You are not a premium user. \n**Credits:** {limit} \nBecome Premium user /plans")
     
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
