@@ -73,7 +73,7 @@ async def my_plan(bot: Bot, message: Message):
 
 # /plans command to show subscription plans
 @Bot.on_message(filters.command('plans') & filters.private)
-async def show_plans(bot: Bot, message: Message):
+async def show_plans(bot: Bot, message: Message):"""
     plans_text = """
 <b>Available Subscription Plans:</b>
 
@@ -87,7 +87,7 @@ async def show_plans(bot: Bot, message: Message):
 - Direct access to files
 - Ad-free experience
 
-To subscribe, click the "Pay via UPI" button below.
+To subscribe, click the "Pay via UPI" button below. """
 """
     buttons = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Pay via UPI", callback_data="upi_info")],
