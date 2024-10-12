@@ -49,6 +49,30 @@ async def decode(base64_string):
     return string
 """
 
+# Function to check premium status
+def check_premium_status(user_data):
+    credits = user_data.get("credits", 0)
+    if credits >= PREMIUM_TIERS.get('gold', 0):
+        return "gold"
+    elif credits >= PREMIUM_TIERS.get('silver', 0):
+        return "silver"
+    elif credits >= PREMIUM_TIERS.get('bronze', 0):
+        return "bronze"
+    return "normal"
+
+
+# Function to auto-remove premium if credits are too low
+async def auto_remove_premium(user_id):
+    user_data = await users_collection.find_one({"user_id": user_id})
+    if user_data.get("is_premium", False) and user_data.get("credits", 0) < 20:
+        # Remove premium status
+        user_data["is_premium"] = False
+        user_data["premium_status"] = "normal"
+        await users_collection.update_one({"user_id": user_id}, {"$set": user_data})
+        logger.info(f"Removed premium status for user {user_id}.")
+        return True
+    return False
+    
 async def decode(base64_string):
     # Determine if it's a 'limit' link or a regular start link
     if base64_string.startswith("limit_"):
