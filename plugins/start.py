@@ -168,6 +168,8 @@ async def start_command(client: Client, message: Message):
 
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
+@Client.on_message(filters.command('start') & filters.private)
+async def start_command(client: Client, message: Message):
     """Handles the /start command for user interactions."""
     user_id = message.from_user.id
     text = message.text
@@ -176,7 +178,14 @@ async def start_command(client: Client, message: Message):
     user_data = await user_collection.find_one({"_id": user_id})
     if not user_data:
         try:
-            await user_collection.insert_one({"_id": user_id, "limit": START_COMMAND_LIMIT, "previous_token": None, "is_premium": False})
+            await user_collection.insert_one({
+                "_id": user_id,
+                "limit": START_COMMAND_LIMIT,
+                "previous_token": None,
+                "is_premium": False,
+                "token_use_count": 0,  # Initialize token use count
+                "last_token_use_time": None  # Initialize token use time
+            })
             logger.info(f"User {user_id} added to the database.")
         except Exception as e:
             logger.error(f"Error adding user {user_id}: {e}")
@@ -188,34 +197,42 @@ async def start_command(client: Client, message: Message):
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
     is_premium = user_data.get("is_premium", False)
-
+    token_use_count = user_data.get("token_use_count", 0)
+    last_token_use_time = user_data.get("last_token_use_time", None)
+    
     # Generate a new token if no previous one exists
     if not previous_token:
         previous_token = str(uuid.uuid4())
-        await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
+        await user_collection.update_one(
+            {"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True
+        )
 
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
 
+    # Handle verification token usage
     if len(text) > 7 and "verify_" in text:
-        try:
-            provided_token = text.split("verify_", 1)[1]
-            token_use_count = user_data.get("token_use_count", 0)
-            last_token_use_time = user_data.get("last_token_use_time", datetime.min)
-            current_time = datetime.now()
+        provided_token = text.split("verify_", 1)[1]
+        current_time = datetime.now()
 
+        try:
             # Check if the provided token matches the stored token
             if provided_token == previous_token:
                 # Check if 24 hours have passed since last token usage
-                time_diff = current_time - last_token_use_time
-                if time_diff > timedelta(hours=24):
-                    token_use_count = 0  # Reset after 24 hours
+                if last_token_use_time:
+                    time_diff = current_time - last_token_use_time
+                else:
+                    time_diff = timedelta(days=1)  # Allow first token usage
 
-                # Check if user exceeded max token usage
+                if time_diff > timedelta(hours=24):
+                    token_use_count = 0  # Reset token usage count after 24 hours
+
+                # Check if the user has exceeded the max token usage
                 if token_use_count >= MAX_TOKEN_USES_PER_DAY:
                     error_message = await message.reply_text(
-                        f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. \n<b>Please try again later or purchase premium for unlimited access.</b>"
+                        f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. "
+                        f"Please try again later or purchase premium for unlimited access."
                     )
                     asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
@@ -223,10 +240,17 @@ async def start_command(client: Client, message: Message):
                 # Verification successful, increase limit by 30 credits
                 await user_collection.update_one(
                     {"_id": user_id},
-                    {"$inc": {"limit": CREDIT_INCREMENT}, "$set": {"token_use_count": token_use_count + 1, "last_token_use_time": current_time}}
+                    {
+                        "$inc": {"limit": CREDIT_INCREMENT},
+                        "$set": {
+                            "token_use_count": token_use_count + 1,
+                            "last_token_use_time": current_time
+                        }
+                    }
                 )
                 confirmation_message = await message.reply_text(
-                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \nUse /check to view your current limit."
+                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! "
+                    f"Use /check to view your current limit."
                 )
                 asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
                 return
@@ -234,6 +258,7 @@ async def start_command(client: Client, message: Message):
                 error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
                 asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                 return
+
         except Exception as e:
             logger.error(f"Error processing verification token: {e}")
             await message.reply_text("An error occurred. Please try again later.")
@@ -242,9 +267,9 @@ async def start_command(client: Client, message: Message):
     # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
         limit_message = (
-            "⚠️ <b>Your credit limit has been reached.</b>\n\n"
-	    "🎁 <b>Available Subscription Plans: /plans</b>\n"
-            "Use the following link to increase your limit by <b>10 credits </b>:"
+            "⚠️ Your credit limit has been reached.\n"
+	    "🎁 Available Subscription Plans: /plans\n"
+            "Use the following link to increase your limit by 20 credits (limited to two times in 24 hours) , Get Subscription to overcome limit:"
         )
         buttons = [
             [InlineKeyboardButton(text='Increase LIMIT', url=shortened_link)],
@@ -264,6 +289,7 @@ async def start_command(client: Client, message: Message):
         await user_collection.update_one({"_id": user_id}, {"$set": {"is_premium": False}})
         logger.info(f"Removed premium status for user {user_id} due to low credits.")
         await message.reply("Your premium status has been removed as your credits dropped below 20.")
+
 	
     text = message.text
     if len(text) > 7:
