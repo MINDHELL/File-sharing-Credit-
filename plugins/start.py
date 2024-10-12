@@ -12,11 +12,7 @@ from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 from config import *
 #from helper_func import decode, get_messages, get_shortlink , generate_token , notify_user , delete_message_after_delay , increase_user_limit , check_premium_status , auto_remove_premium 
 from helper_func import *
-from database.database import (
-    get_user, increase_user_limit, can_increase_credits, 
-    set_premium_status, get_token_usage, log_token_usage,
-    verify_token, remove_premium_if_low, log_verification
-)
+from database.database import *
 import uuid
 
 # Initialize the bot
