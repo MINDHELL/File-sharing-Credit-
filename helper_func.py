@@ -41,14 +41,14 @@ async def encode(string):
     base64_bytes = base64.urlsafe_b64encode(string_bytes)
     base64_string = (base64_bytes.decode("ascii")).strip("=")
     return base64_string
-"""
+
 async def decode(base64_string):
     base64_string = base64_string.strip("=")
     base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
     string_bytes = base64.urlsafe_b64decode(base64_bytes)
     string = string_bytes.decode("ascii")
     return string
-"""
+
 def generate_token(length=10):
     """Generates a random alphanumeric token."""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -111,7 +111,8 @@ async def auto_remove_premium(user_id):
         logger.info(f"Removed premium status for user {user_id}.")
         return True
     return False
-    
+
+"""
 async def decode(base64_string):
     # Determine if it's a 'limit' link or a regular start link
     if base64_string.startswith("verify_"):
@@ -129,7 +130,7 @@ async def decode(base64_string):
         string = string_bytes.decode("latin-1")  # Fallback decoding
     
     return string
-
+"""
 
 async def get_messages(client, message_ids):
     messages = []
