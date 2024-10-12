@@ -5,7 +5,7 @@
 from bot import Bot
 from pyrogram import filters
 from config import *
-from datatabase.database.py import *
+from database.database.py import *
 from datetime import datetime
 from plugins.start import *
 from pyrogram.types import Message, CallbackQuery
