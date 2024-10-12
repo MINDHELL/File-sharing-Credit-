@@ -172,7 +172,7 @@ async def can_increase_credits(user_id, credits, time_limit=24):
     return True
 """
 async def log_token_usage(user_id, credits):
-    #"""Logs the credit increase usage for rate limiting."""
+    #Logs the credit increase usage for rate limiting.
     current_time = datetime.utcnow()
     await user_collection.update_one(
         {"_id": user_id},
