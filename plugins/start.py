@@ -77,7 +77,7 @@ async def start_command(client: Client, message: Message):
     #    await set_previous_token(user_id, previous_token)
     #    logger.info(f"Generated new token for user {user_id}.")
 
-     if not previous_token:
+    if not previous_token:
         previous_token = str(uuid.uuid4())
         await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
 
