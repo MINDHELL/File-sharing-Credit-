@@ -1,5 +1,5 @@
 # https://t.me/Ultroid_Official/524
-
+"""
 # https://t.me/Ultroid_Official/524
 
 from bot import Bot
@@ -110,4 +110,4 @@ async def upi_info(bot: Bot, message: Message):
     )
 
 
-
+"""
