@@ -63,12 +63,12 @@ async def start_command(client: Client, message: Message):
             return
 
     # Retrieve user data
-    user = await get_user(user_id)
+    user = await get_user(user_id) or {}
     user_limit = user.get("limit", START_COMMAND_LIMIT)
     previous_token = user.get("verify_token", "")
     is_premium = user.get("is_premium", False)
 
-    # Generate a new token only if previous_token is not available
+    # Generate a new token if no previous one exists
     if not previous_token:
         previous_token = str(uuid.uuid4())
         await set_previous_token(user_id, previous_token)
@@ -79,52 +79,53 @@ async def start_command(client: Client, message: Message):
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
 
     if "verify_" in text:
-        provided_token = text.split("verify_", 1)[1]
-        previous_token = user_data.get("previous_token")
-        token_use_count = user_data.get("token_use_count", 0)
-        last_token_use_time = user_data.get("last_token_use_time", datetime.min)
-        current_time = datetime.now()
+        try:
+            provided_token = text.split("verify_", 1)[1]
+            token_use_count = user.get("token_use_count", 0)
+            last_token_use_time = user.get("last_token_use_time", datetime.min)
+            current_time = datetime.now()
 
-        # Check if the provided token matches the stored token
-        if provided_token == previous_token:
-            # Calculate the time difference since the last token usage
-            time_diff = current_time - last_token_use_time
+            # Check if the provided token matches the stored token
+            if provided_token == previous_token:
+                # Check if 24 hours have passed since last token usage
+                time_diff = current_time - last_token_use_time
+                if time_diff > timedelta(hours=24):
+                    token_use_count = 0  # Reset after 24 hours
 
-            # Reset the token use count if 24 hours have passed since the first token use
-            if time_diff > timedelta(hours=24):
-                token_use_count = 0  # Reset the count after 24 hours
+                # Check if user exceeded max token usage
+                if token_use_count >= MAX_TOKEN_USES_PER_DAY:
+                    error_message = await message.reply_text(
+                        f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. Please try again later or purchase premium for unlimited access."
+                    )
+                    asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+                    return
 
-            # Check if the user has exceeded the max token use limit within 24 hours
-            if token_use_count >= MAX_TOKEN_USES_PER_DAY:
-                error_message = await message.reply_text(
-                    f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. Please try again later or purchase premium for unlimited access."
+                # Verification successful, increase limit by 10 credits
+                await increase_user_limit(user_id, CREDIT_INCREMENT)
+                await log_verification(user_id)
+
+                # Update token use count and last token use time
+                token_use_count += 1
+                await users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": {
+                        "token_use_count": token_use_count,
+                        "last_token_use_time": current_time
+                    }}
                 )
+
+                confirmation_message = await message.reply_text(
+                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! Use /check to view your current limit."
+                )
+                asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+                return
+            else:
+                error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
                 asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                 return
-
-            # Verification successful, increase limit by 10 credits
-            await increase_user_limit(user_id, CREDIT_INCREMENT)
-            await log_verification(user_id)
-
-            # Update token use count and last token use time in the database
-            token_use_count += 1
-            await users_collection.update_one(
-                {"user_id": user_id},
-                {"$set": {
-                    "token_use_count": token_use_count,
-                    "last_token_use_time": current_time
-                }}
-            )
-
-            # Inform the user of successful credit increase
-            confirmation_message = await message.reply_text(
-                f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! Use /check to view your current limit."
-            )
-            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
-            return
-        else:
-            error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
-            asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+        except Exception as e:
+            logger.error(f"Error processing verification token: {e}")
+            await message.reply_text("An error occurred. Please try again later.")
             return
 
     # If the limit is reached, prompt the user to use the verification link
@@ -146,7 +147,7 @@ async def start_command(client: Client, message: Message):
     # Deduct 1 from the user's limit and proceed
     await increase_user_limit(user_id, -1)
     logger.info(f"Deducted 1 credit from user {user_id}. New limit: {user_limit -1}")
-	
+
     if is_premium and user_limit - 1 < 20:
         # Remove premium status and notify the user
         await users_collection.update_one({"user_id": user_id}, {
@@ -158,48 +159,22 @@ async def start_command(client: Client, message: Message):
     if len(text) > 7:
         try:
             base64_string = text.split(" ", 1)[1]
-        except IndexError:
-            return
-        
-        string = await decode(base64_string)
-        argument = string.split("-")
-        
-        if len(argument) == 3:
-            try:
-                start = int(int(argument[1]) / abs(client.db_channel.id))
-                end = int(int(argument[2]) / abs(client.db_channel.id))
-            except Exception as e:
-                logger.error(f"Error parsing arguments: {e}")
-                return
-            
-            if start <= end:
-                ids = range(start, end + 1)
-            else:
-                ids = list(range(start, end - 1, -1))
-        elif len(argument) == 2:
-            try:
+            string = await decode(base64_string)
+            argument = string.split("-")
+
+            if len(argument) == 3:
+                start, end = map(lambda x: int(int(x) / abs(client.db_channel.id)), argument[1:])
+                ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
+            elif len(argument) == 2:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                logger.error(f"Error parsing arguments: {e}")
-                return
-        
-        temp_msg = await message.reply("Please wait...")
-        try:
+
+            temp_msg = await message.reply("Please wait...")
             messages = await get_messages(client, ids)
-        except Exception as e:
-            await message.reply_text("Something went wrong..!")
-            logger.error(f"Error getting messages: {e}")
-            return
-        
-        await temp_msg.delete()
+            await temp_msg.delete()
 
-        for msg in messages:
-            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
-                                            filename=msg.document.file_name) if bool(CUSTOM_CAPTION) & bool(msg.document) else "" if not msg.caption else msg.caption.html
-
-            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
-
-            try:
+            for msg in messages:
+                caption = CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name) if CUSTOM_CAPTION and msg.document else msg.caption.html if msg.caption else ""
+                reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
@@ -209,43 +184,32 @@ async def start_command(client: Client, message: Message):
                 )
                 asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
                 await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
-                    protect_content=PROTECT_CONTENT
-                )
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-            except Exception as e:
-                logger.error(f"Error copying message: {e}")
-                pass
+        except FloodWait as e:
+            await asyncio.sleep(e.x)
+        except Exception as e:
+            logger.error(f"Error processing message copy: {e}")
         return
-    else:
-        reply_markup = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("😊 About Me", callback_data="about"),
-                    InlineKeyboardButton("🔒 Close", callback_data="close")
-                ]
-            ]
-        )
-        welcome_message = await message.reply_text(
-            text=START_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=reply_markup,
-            disable_web_page_preview=True,
-            quote=True
-        )
-        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))	
-        return
+
+    # Default welcome message
+    reply_markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")]
+        ]
+    )
+    welcome_message = await message.reply_text(
+        text=START_MSG.format(
+            first=message.from_user.first_name,
+            last=message.from_user.last_name,
+            username=f'@{message.from_user.username}' if message.from_user.username else None,
+            mention=message.from_user.mention,
+            id=message.from_user.id
+        ),
+        reply_markup=reply_markup,
+        disable_web_page_preview=True,
+        quote=True
+    )
+    asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+
 
 
 #=========================================================================================##
