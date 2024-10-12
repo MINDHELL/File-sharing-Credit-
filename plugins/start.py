@@ -215,16 +215,17 @@ async def start_command(client: Client, message: Message):
         current_time = datetime.now()
 
         try:
-            # Check if the provided token matches the stored token
-            if provided_token == previous_token:
-                # Check if 24 hours have passed since last token usage
-                if last_token_use_time:
-                    time_diff = current_time - last_token_use_time
-                else:
-                    time_diff = timedelta(days=1)  # Allow first token usage
 
-                if time_diff > timedelta(hours=24):
-                    token_use_count = 0  # Reset token usage count after 24 hours
+	    if provided_token == previous_token:
+    		current_time = datetime.now()
+   		if last_token_use_time:
+        	    time_diff = current_time - last_token_use_time
+    		else:
+        	    time_diff = timedelta(days=1)  # First-time use
+
+    		# Reset token usage count after 24 hours
+    		if time_diff > timedelta(hours=24):
+        	    token_use_count = 0
 
                 # Check if the user has exceeded the max token usage
                 if token_use_count >= MAX_TOKEN_USES_PER_DAY:
@@ -235,11 +236,12 @@ async def start_command(client: Client, message: Message):
                     asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
 
-                # Verification successful, increase limit by 30 credits
+		# Token is valid, increment limit and update the token usage count
+                # Verification successful, increase limit by 10 credits
                 await user_collection.update_one(
                     {"_id": user_id},
                     {
-                        "$inc": {"limit": CREDIT_INCREMENT},
+                        "$inc": {"limit": CREDIT_INCREMENT, "token_use_count": 1},
                         "$set": {
                             "token_use_count": token_use_count + 1,
                             "last_token_use_time": current_time
