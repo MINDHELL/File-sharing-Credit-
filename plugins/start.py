@@ -9,12 +9,7 @@ from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
-from config import (
-    API_ID, API_HASH, BOT_TOKEN, ADMIN_IDS,
-    SHORTLINK_API, SHORTLINK_URL,
-    AUTO_DELETE_DELAY, LIMIT_INCREASE_AMOUNT,
-    START_COMMAND_LIMIT, TUT_VID
-)
+from config import *
 #from helper_func import decode, get_messages, get_shortlink , generate_token , notify_user , delete_message_after_delay , increase_user_limit , check_premium_status , auto_remove_premium 
 from helper_func import *
 from database.database import (
