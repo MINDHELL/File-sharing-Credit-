@@ -5,6 +5,7 @@
 from bot import Bot
 from pyrogram import filters
 from config import *
+from datatabase.database.py import *
 from datetime import datetime
 from plugins.start import *
 from pyrogram.types import Message, CallbackQuery
@@ -12,64 +13,158 @@ from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 
-# Add /addpr command for admins to add premium subscription
-@Bot.on_message(filters.private & filters.command('addpr') & filters.user(ADMINS))
-async def add_premium(bot: Bot, message: Message):  # Changed `client: Client` to match `Bot`
-    if message.from_user.id not in ADMINS:  # Fix: check if user is in ADMINS
-        return await message.reply("You don't have permission to add premium users.")
+# Admin command to manually increase or decrease credits
+@Bot.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
+async def give_credits(client: Client, message: Message):
+    try:
+        _, user_id, credits = message.text.split()
+        user_id = int(user_id)
+        credits = int(credits)
+
+        await increase_user_limit(user_id, credits)
+        await message.reply(f"Gave {credits} credits to user {user_id}.")
+    except Exception as e:
+        await message.reply(f"Error: {e}")
+        
+@Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
+async def add_credits(client: Client, message: Message):
+    """Admin command to add credits to a user."""
+    user_id = message.from_user.id
+
+    if len(message.command) != 2:
+        await message.reply_text("Usage: /addcredits <credits>")
+        return
 
     try:
-        command_parts = message.text.split()
-        if len(command_parts) < 3:  # Check if enough arguments are provided
-            return await message.reply("Usage: /addpr <user_id> <duration_in_days>")
+        credits_to_add = int(message.command[1])
+        
+        if credits_to_add <= 0 or credits_to_add > 20:
+            await message.reply_text("You can only add between 1 and 20 credits at a time.")
+            return
+        
+        can_add = await can_increase_credits(user_id, credits_to_add)
+        if not can_add:
+            await message.reply_text("You've reached the credit increase limit for today (20 credits). Try again later.")
+            return
 
-        target_user_id = int(command_parts[1])
-        duration_in_days = int(command_parts[2])
-        await add_premium_user(target_user_id, duration_in_days)
-        await message.reply(f"User {target_user_id} added to premium for {duration_in_days} days.")
+        await increase_user_limit(user_id, credits_to_add)
+        await log_token_usage(user_id, credits_to_add)
+        await message.reply_text(f"✅ Successfully added {credits_to_add} credits to your account.")
+
+    except ValueError:
+        await message.reply_text("Invalid number of credits. Please enter a valid integer.")
     except Exception as e:
-        await message.reply(f"Error: {str(e)}")
+        logger.error(f"Error in add_credits: {e}")
+        await message.reply_text("An error occurred while adding credits.")
 
-# Add /removepr command for admins to remove premium subscription
-@Bot.on_message(filters.private & filters.command('removepr') & filters.user(ADMINS))
-async def remove_premium(bot: Bot, message: Message):  # Changed `client: Client` to match `Bot`
-    if message.from_user.id not in ADMINS:  # Fix: check if user is in ADMINS
-        return await message.reply("You don't have permission to remove premium users.")
-
-    try:
-        command_parts = message.text.split()
-        if len(command_parts) < 2:  # Check if enough arguments are provided
-            return await message.reply("Usage: /removepr <user_id>")
-
-        target_user_id = int(command_parts[1])
-        await remove_premium_user(target_user_id)
-        await message.reply(f"User {target_user_id} removed from premium.")
-    except Exception as e:
-        await message.reply(f"Error: {str(e)}")
-
-# /myplan command for user subscription status
-@Bot.on_message(filters.command('myplan') & filters.private)
-async def my_plan(bot: Bot, message: Message):
-    is_premium, expiry_time = await get_user_subscription(message.from_user.id)
+@Bot.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
+async def give_premium_status(client: Client, message: Message):
+    """Admin command to assign premium status and credits to a user."""
+    if len(message.command) != 4:
+        await message.reply_text("Usage: /givepr <user_id> <credits> <premium_status>")
+        return
     
-    if is_premium:
-        time_left = expiry_time - time.time()
-        days_left = int(time_left / 86400)
-        response_text = f"✅ Your premium subscription is active. Time left: {days_left} days."
+    try:
+        user_id = int(message.command[1])
+        credits = int(message.command[2])
+        premium_status = message.command[3].capitalize()
         
-        buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Upgrade Plan", callback_data="show_plans")],
-             [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
-        )
+        if premium_status not in ['Bronze', 'Silver', 'Gold']:
+            await message.reply_text("Invalid premium status. Choose from Bronze, Silver, Gold.")
+            return
+        
+        # Define credit amounts for each premium status
+        premium_credits = {
+            'Bronze': 50,
+            'Silver': 100,
+            'Gold': 200
+        }
+        
+        if credits != premium_credits[premium_status]:
+            await message.reply_text("Invalid credit amount for the specified premium status.")
+            return
+        
+        await set_premium_status(user_id, premium_status, credits)
+        await message.reply_text(f"Assigned {premium_status} status with {credits} credits to user {user_id}.")
+        
+        # Notify the user if they are online
+        try:
+            await client.send_message(
+                chat_id=user_id,
+                text=f"You have been granted {premium_status} status with {credits} credits by an admin."
+            )
+            logger.info(f"Notified user {user_id} about premium status assignment.")
+        except Exception as e:
+            logger.warning(f"Could not notify user {user_id}: {e}")
+        
+    except ValueError:
+        await message.reply_text("Invalid arguments. Ensure <user_id> and <credits> are integers.")
+    except Exception as e:
+        logger.error(f"Error in give_premium_status: {e}")
+        await message.reply_text("An error occurred while assigning premium status.")
+
+
+@Bot.on_message(filters.command('checkpr') & filters.private)
+async def check_premium_status(client: Client, message: Message):
+    """User command to check their premium status and remaining credits."""
+    user_id = message.from_user.id
+    user = await get_user(user_id)
+    
+    if user["is_premium"]:
+        status = user.get("premium_status", "Unknown")
+        limit = user.get("limit", 0)
+        await message.reply_text(f"🏆 **Premium Status:** {status}\n💳 **Credits:** {limit}")
     else:
-        response_text = "❌ You are not a premium user."
-        
-        buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("View Plans", callback_data="show_plans")],
-             [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
+        await message.reply_text("You are not a premium user.")
+    
+    # Optionally delete the message after a delay
+    asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+
+
+@Bot.on_message(filters.command('check') & filters.private)
+async def check_command(client: Client, message: Message):
+    """User command to check their current credit limit."""
+    user_id = message.from_user.id
+
+    try:
+        user = await get_user(user_id)
+        user_limit = user.get("limit", START_COMMAND_LIMIT)
+        await message.reply_text(f"💳 **Your current limit is {user_limit} credits.**")
+        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+    except Exception as e:
+        logger.error(f"Error in check_command: {e}")
+        error_message = await message.reply_text("An error occurred while checking your limit.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+
+@Bot.on_message(filters.command('count') & filters.private)
+async def count_command(client: Client, message: Message):
+    """Admin command to display token usage statistics."""
+    user_id = message.from_user.id
+    if user_id not in ADMIN_IDS:
+        await message.reply_text("You do not have permission to use this command.")
+        return
+    
+    try:
+        # Get the count of verifications in the last 24 hours
+        last_24h_count = await get_verification_count("24h")
+
+        # Get the count of verifications today
+        today_count = await get_verification_count("today")
+
+        count_message = (
+            f"📊 **Token Usage Statistics:**\n\n"
+            f"• **Last 24 Hours:** {last_24h_count} verifications\n"
+            f"• **Today's Verifications:** {today_count} verifications"
         )
 
-    await message.reply(response_text, reply_markup=buttons)
+        response_message = await message.reply_text(count_message, parse_mode=ParseMode.MARKDOWN)
+        asyncio.create_task(delete_message_after_delay(response_message, AUTO_DELETE_DELAY))
+
+    except Exception as e:
+        logger.error(f"Error in count_command: {e}")
+        error_message = await message.reply_text("An error occurred while retrieving count data.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+
 
 # /plans command to show subscription plans
 @Bot.on_message(filters.command('plans') & filters.private)
