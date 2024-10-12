@@ -131,13 +131,13 @@ async def check_premium_status(client: Client, message: Message):
         premium_status = user.get("premium_status", "Unknown")
         await message.reply_text(
             f"🏆 <b>Premium Status: {premium_status}</b>\n💳 <b>Credits: {limit}</b>",
-            parse_mode="HTML"
+            parse_mode=ParseMode.HTML
         )
     else:
         # Non-premium users' message
         await message.reply_text(
             f"You are not a premium user.\n<b>Credits:</b> {limit}\nBecome a Premium user: /plans",
-            parse_mode="HTML"
+            parse_mode=ParseMode.HTML
         )
 
     # Delete the user's command after a delay to keep the chat clean
