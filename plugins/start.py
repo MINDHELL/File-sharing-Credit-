@@ -197,8 +197,8 @@ async def start_command(client: Client, message: Message):
     is_premium = user_data.get("is_premium", False)
     token_use_count = user_data.get("token_use_count", 0)
     last_token_use_time = user_data.get("last_token_use_time", None)
+
     
-    # Generate a new token if no previous one exists
     if not previous_token:
         previous_token = str(uuid.uuid4())
         await user_collection.update_one(
@@ -208,7 +208,7 @@ async def start_command(client: Client, message: Message):
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
-
+	
     # Handle verification token usage
     if len(text) > 7 and "verify_" in text:
         provided_token = text.split("verify_", 1)[1]
@@ -243,11 +243,12 @@ async def start_command(client: Client, message: Message):
                     {
                         "$inc": {"limit": CREDIT_INCREMENT, "token_use_count": 1},
                         "$set": {
-                            "token_use_count": token_use_count + 1,
+                            #"token_use_count": token_use_count + 1,
                             "last_token_use_time": current_time
                         }
                     }
                 )
+		logger.info(f"Token used by user {user_id}. New token use count: {token_use_count + 1}")
                 confirmation_message = await message.reply_text(
                     f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \n"
                     f"Use /check to view your current limit."
