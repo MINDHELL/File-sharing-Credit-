@@ -16,7 +16,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Admin command to manually increase or decrease credits
-@Bot.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
 async def give_credits(client: Client, message: Message):
     try:
         _, user_id, credits = message.text.split()
