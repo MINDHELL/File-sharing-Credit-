@@ -247,7 +247,7 @@ async def start_command(client: Client, message: Message):
                     }
                 )
                 confirmation_message = await message.reply_text(
-                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! "
+                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \n"
                     f"Use /check to view your current limit."
                 )
                 asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
