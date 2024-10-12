@@ -266,7 +266,7 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
 
     
     
-@Bot.on_message(filters.command('start') & filters.private)
+@Client.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
     buttons = [
         [
@@ -305,13 +305,13 @@ async def not_joined(client: Client, message: Message):
 
 
 
-@Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
+@Client.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
     users = await full_userbase()
     await msg.edit(f"{len(users)} users are using this bot")
 
-@Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
+@Client.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
 async def send_text(client: Bot, message: Message):
     if message.reply_to_message:
         query = await full_userbase()
