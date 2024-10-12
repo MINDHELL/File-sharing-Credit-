@@ -49,6 +49,31 @@ async def decode(base64_string):
     return string
 """
 
+# Utility function to delete a message after a delay
+async def delete_message_after_delay(message: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+        logger.info(f"Deleted message from user {message.from_user.id} after {delay} seconds.")
+    except Exception as e:
+        logger.error(f"Error deleting message: {e}")
+
+
+# Increase or decrease user credits
+async def increase_user_limit(user_id, increment):
+    user_data = await users_collection.find_one({"user_id": user_id})
+    if not user_data:
+        logger.warning(f"User {user_id} not found in the database.")
+        return
+
+    new_limit = user_data.get("credits", 0) + increment
+    if new_limit < 0:
+        new_limit = 0
+
+    await users_collection.update_one({"user_id": user_id}, {"$set": {"credits": new_limit}})
+
+    logger.info(f"User {user_id}'s credit limit updated to {new_limit}.")
+    
 # Function to check premium status
 def check_premium_status(user_data):
     credits = user_data.get("credits", 0)
