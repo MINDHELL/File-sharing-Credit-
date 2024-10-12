@@ -44,34 +44,7 @@ CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
 AUTO_DELETE_DELAY = 100      # Delay to auto-delete messages
 ADMIN_IDS = [6695586027]
 
-def generate_token(length=10):
-    """Generates a random alphanumeric token."""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-async def get_shortlink(url, api, link):
-    """Generates a shortened URL using Shortzy."""
-    try:
-        shortened_link = await shortzy.convert(link)
-        return shortened_link
-    except Exception as e:
-        logger.error(f"Error generating short link: {str(e)}")
-        return link  # Fallback to original link if shortening fails
-
-async def notify_user(client, user_id, message):
-    """Helper function to send a notification to a user."""
-    try:
-        await client.send_message(chat_id=user_id, text=message)
-        logger.info(f"Notified user {user_id} about premium status assignment.")
-    except Exception as e:
-        logger.warning(f"Could not notify user {user_id}: {e}")
-
-async def delete_message_after_delay(message, delay):
-    """Delete a message after a specified delay."""
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
 
 @Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
 async def add_credits(client: Client, message: Message):
@@ -452,30 +425,7 @@ async def start_command(client: Client, message: Message):
         asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))	
         return
 
-# Utility function to delete a message after a delay
-async def delete_message_after_delay(message: Message, delay: int):
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-        logger.info(f"Deleted message from user {message.from_user.id} after {delay} seconds.")
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
 
-
-# Increase or decrease user credits
-async def increase_user_limit(user_id, increment):
-    user_data = await users_collection.find_one({"user_id": user_id})
-    if not user_data:
-        logger.warning(f"User {user_id} not found in the database.")
-        return
-
-    new_limit = user_data.get("credits", 0) + increment
-    if new_limit < 0:
-        new_limit = 0
-
-    await users_collection.update_one({"user_id": user_id}, {"$set": {"credits": new_limit}})
-
-    logger.info(f"User {user_id}'s credit limit updated to {new_limit}.")
 
 # Admin command to give premium status and credits
 @Bot.on_message(filters.command("givepr") & filters.user(ADMIN_IDS))
@@ -531,62 +481,6 @@ async def give_credits(client: Client, message: Message):
         await message.reply(f"Gave {credits} credits to user {user_id}.")
     except Exception as e:
         await message.reply(f"Error: {e}")
-
-
-# User command to add 20 credits every 24 hours (normal users only)
-@Bot.on_message(filters.command("addcredits"))
-async def add_credits(client: Client, message: Message):
-    user_id = message.from_user.id
-    user_data = await users_collection.find_one({"user_id": user_id})
-
-    if not user_data:
-        user_data = {"user_id": user_id, "credits": 0, "is_premium": False, "premium_status": "normal"}
-
-    last_added_time = user_data.get("last_added_time")
-    current_time = datetime.now()
-
-    if last_added_time:
-        time_diff = current_time - last_added_time
-        if time_diff < timedelta(hours=24):
-            await message.reply("You can only add credits once every 24 hours.")
-            return
-
-    user_data["credits"] += CREDIT_LIMIT
-    user_data["last_added_time"] = current_time
-
-    # Update premium status
-    new_status = check_premium_status(user_data)
-    user_data["premium_status"] = new_status
-    user_data["is_premium"] = new_status != "normal"
-
-    await users_collection.update_one({"user_id": user_id}, {"$set": user_data}, upsert=True)
-    await message.reply(f"{CREDIT_LIMIT} credits added! You now have {user_data['credits']} credits.")
-
-
-# Function to check premium status
-def check_premium_status(user_data):
-    credits = user_data.get("credits", 0)
-    if credits >= PREMIUM_TIERS.get('gold', 0):
-        return "gold"
-    elif credits >= PREMIUM_TIERS.get('silver', 0):
-        return "silver"
-    elif credits >= PREMIUM_TIERS.get('bronze', 0):
-        return "bronze"
-    return "normal"
-
-
-# Function to auto-remove premium if credits are too low
-async def auto_remove_premium(user_id):
-    user_data = await users_collection.find_one({"user_id": user_id})
-    if user_data.get("is_premium", False) and user_data.get("credits", 0) < 20:
-        # Remove premium status
-        user_data["is_premium"] = False
-        user_data["premium_status"] = "normal"
-        await users_collection.update_one({"user_id": user_id}, {"$set": user_data})
-        logger.info(f"Removed premium status for user {user_id}.")
-        return True
-    return False
-
 
 
 #=========================================================================================##
