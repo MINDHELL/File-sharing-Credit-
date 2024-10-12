@@ -46,7 +46,7 @@ async def delete_message_after_delay(message: Message, delay: int):
     except Exception as e:
         logger.error(f"Failed to delete message: {e}")
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
+@Client.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     """Handles the /start command for user interactions."""
     user_id = message.from_user.id
