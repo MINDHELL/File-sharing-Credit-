@@ -140,8 +140,9 @@ async def start_command(client: Client, message: Message):
     # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
         limit_message = (
-            "⚠️ **Your credit limit has been reached.**\n"
-            "Use the following link to increase your limit by 30 credits (limited to two times in 24 hours):"
+            "⚠️ <b>Your credit limit has been reached.</b>\n\n"
+	    ""
+            "Use the following link to increase your limit by <b>10 credits </b>:"
         )
         buttons = [
             [InlineKeyboardButton(text='Increase LIMIT', url=shortened_link)],
@@ -214,7 +215,7 @@ async def start_command(client: Client, message: Message):
                 # Check if user exceeded max token usage
                 if token_use_count >= MAX_TOKEN_USES_PER_DAY:
                     error_message = await message.reply_text(
-                        f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. Please try again later or purchase premium for unlimited access."
+                        f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. \n<b>Please try again later or purchase premium for unlimited access.</b>"
                     )
                     asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
@@ -225,7 +226,7 @@ async def start_command(client: Client, message: Message):
                     {"$inc": {"limit": CREDIT_INCREMENT}, "$set": {"token_use_count": token_use_count + 1, "last_token_use_time": current_time}}
                 )
                 confirmation_message = await message.reply_text(
-                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! Use /check to view your current limit."
+                    f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \nUse /check to view your current limit."
                 )
                 asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
                 return
@@ -241,8 +242,9 @@ async def start_command(client: Client, message: Message):
     # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
         limit_message = (
-            "⚠️ **Your credit limit has been reached.**\n"
-            "Use the following link to increase your limit by 30 credits (limited to two times in 24 hours):"
+            "⚠️ <b>Your credit limit has been reached.</b>\n\n"
+	    "🎁 <b>Available Subscription Plans: /plans</b>\n"
+            "Use the following link to increase your limit by <b>10 credits </b>:"
         )
         buttons = [
             [InlineKeyboardButton(text='Increase LIMIT', url=shortened_link)],
