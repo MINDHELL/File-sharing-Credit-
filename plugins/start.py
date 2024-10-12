@@ -38,6 +38,12 @@ logger = logging.getLogger(__name__)
 # Initialize Shortzy for URL shortening
 shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
 
+
+MAX_TOKEN_USES_PER_DAY = 2  # Maximum times a user can use the token in 24 hours
+CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
+AUTO_DELETE_DELAY = 100      # Delay to auto-delete messages
+ADMIN_IDS = [6695586027]
+
 def generate_token(length=10):
     """Generates a random alphanumeric token."""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -238,16 +244,47 @@ async def start_command(client: Client, message: Message):
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
 
-    # Check if the user is providing a verification token
     if "verify_" in text:
         provided_token = text.split("verify_", 1)[1]
+        previous_token = user_data.get("previous_token")
+        token_use_count = user_data.get("token_use_count", 0)
+        last_token_use_time = user_data.get("last_token_use_time", datetime.min)
+        current_time = datetime.now()
+
+        # Check if the provided token matches the stored token
         if provided_token == previous_token:
-            # Verification successful, increase limit by 30
-            await increase_user_limit(user_id, 30)
+            # Calculate the time difference since the last token usage
+            time_diff = current_time - last_token_use_time
+
+            # Reset the token use count if 24 hours have passed since the first token use
+            if time_diff > timedelta(hours=24):
+                token_use_count = 0  # Reset the count after 24 hours
+
+            # Check if the user has exceeded the max token use limit within 24 hours
+            if token_use_count >= MAX_TOKEN_USES_PER_DAY:
+                error_message = await message.reply_text(
+                    f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. Please try again later or purchase premium for unlimited access."
+                )
+                asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+                return
+
+            # Verification successful, increase limit by 10 credits
+            await increase_user_limit(user_id, CREDIT_INCREMENT)
             await log_verification(user_id)
-            await log_token_usage(user_id, 30)
+
+            # Update token use count and last token use time in the database
+            token_use_count += 1
+            await users_collection.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "token_use_count": token_use_count,
+                    "last_token_use_time": current_time
+                }}
+            )
+
+            # Inform the user of successful credit increase
             confirmation_message = await message.reply_text(
-                "✅ Your limit has been successfully increased by 30 credits! Use /check to view your credits."
+                f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! Use /check to view your current limit."
             )
             asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
             return
