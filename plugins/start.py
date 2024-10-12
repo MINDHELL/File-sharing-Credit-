@@ -32,6 +32,14 @@ logger = logging.getLogger(__name__)
 # Initialize Shortzy for URL shortening
 shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
 
+async def get_shortlink(url, api, link):
+    try:
+        verification_link = await shortzy.convert(link)
+        return verification_link
+    except Exception as e:
+        logger.error(f"Error generating short link: {str(e)}")
+        return link
+
 async def delete_message_after_delay(message: Message, delay: int):
     """Delete a message after a specified delay."""
     await asyncio.sleep(delay)
