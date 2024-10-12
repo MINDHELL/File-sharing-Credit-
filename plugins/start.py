@@ -57,14 +57,53 @@ async def get_shortlink(url, api, link):
         logger.error(f"Error generating short link: {str(e)}")
         return link  # Fallback to original link if shortening fails
 
-async def delete_message_after_delay(message: Message, delay: int):
-    """Deletes a message after a specified delay."""
+async def notify_user(client, user_id, message):
+    """Helper function to send a notification to a user."""
+    try:
+        await client.send_message(chat_id=user_id, text=message)
+        logger.info(f"Notified user {user_id} about premium status assignment.")
+    except Exception as e:
+        logger.warning(f"Could not notify user {user_id}: {e}")
+
+async def delete_message_after_delay(message, delay):
+    """Delete a message after a specified delay."""
     await asyncio.sleep(delay)
     try:
         await message.delete()
-        logger.debug(f"Deleted message with ID: {message.message_id}")
     except Exception as e:
-        logger.error(f"Failed to delete message: {e}")
+        logger.error(f"Error deleting message: {e}")
+
+@Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
+async def add_credits(client: Client, message: Message):
+    """User command to add credits using tokens, limited to 20 credits per 24 hours."""
+    user_id = message.from_user.id
+
+    if len(message.command) != 2:
+        await message.reply_text("Usage: /addcredits <credits>")
+        return
+
+    try:
+        credits_to_add = int(message.command[1])
+        
+        if credits_to_add <= 0 or credits_to_add > 20:
+            await message.reply_text("You can only add between 1 and 20 credits at a time.")
+            return
+        
+        can_add = await can_increase_credits(user_id, credits_to_add)
+        if not can_add:
+            await message.reply_text("You've reached the credit increase limit for today (20 credits). Try again later.")
+            return
+
+        await increase_user_limit(user_id, credits_to_add)
+        await log_token_usage(user_id, credits_to_add)
+        await message.reply_text(f"✅ Successfully added {credits_to_add} credits to your account.")
+
+    except ValueError:
+        await message.reply_text("Invalid number of credits. Please enter a valid integer.")
+    except Exception as e:
+        logger.error(f"Error in add_credits: {e}")
+        await message.reply_text("An error occurred while adding credits.")
+
 
 @Bot.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
 async def give_premium_status(client: Client, message: Message):
@@ -439,7 +478,7 @@ async def increase_user_limit(user_id, increment):
     logger.info(f"User {user_id}'s credit limit updated to {new_limit}.")
 
 # Admin command to give premium status and credits
-@app.on_message(filters.command("givepr") & filters.user(ADMIN_IDS))
+@Bot.on_message(filters.command("givepr") & filters.user(ADMIN_IDS))
 async def give_premium_status(client: Client, message: Message):
     try:
         _, user_id, credits, premium_status = message.text.split()
@@ -465,7 +504,7 @@ async def give_premium_status(client: Client, message: Message):
 
 
 # Command for users to check their premium status and remaining credits
-@app.on_message(filters.command("checkpr"))
+@Bot.on_message(filters.command("checkpr"))
 async def check_premium(client: Client, message: Message):
     user_id = message.from_user.id
     user_data = await users_collection.find_one({"user_id": user_id})
@@ -481,7 +520,7 @@ async def check_premium(client: Client, message: Message):
 
 
 # Admin command to manually increase or decrease credits
-@app.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
+@Bot.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
 async def give_credits(client: Client, message: Message):
     try:
         _, user_id, credits = message.text.split()
@@ -495,7 +534,7 @@ async def give_credits(client: Client, message: Message):
 
 
 # User command to add 20 credits every 24 hours (normal users only)
-@app.on_message(filters.command("addcredits"))
+@Bot.on_message(filters.command("addcredits"))
 async def add_credits(client: Client, message: Message):
     user_id = message.from_user.id
     user_data = await users_collection.find_one({"user_id": user_id})
