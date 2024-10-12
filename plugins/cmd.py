@@ -184,6 +184,55 @@ async def count_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while retrieving count data.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
+@Client.on_message(filters.command('token_stats') & filters.private)
+async def token_stats(client: Client, message: Message):
+    """Handles the /token_stats command for admins to view token verification statistics."""
+    admin_id = message.from_user.id
+
+    # Check if the user is an admin
+    if admin_id not in ADMINS:  # Make sure ADMINS is a list of your admin user IDs
+        await message.reply_text("❌ You are not authorized to use this command.")
+        return
+
+    try:
+        # Get the total number of tokens verified
+        total_token_count = await user_collection.count_documents({"token_use_count": {"$gt": 0}})
+
+        # Get the total number of verifications across all users
+        total_verifications = await user_collection.aggregate([
+            {"$group": {"_id": None, "total_verifications": {"$sum": "$token_use_count"}}}
+        ]).to_list(None)
+        total_verifications_count = total_verifications[0]['total_verifications'] if total_verifications else 0
+
+        # Get token verification data for the last 24 hours
+        last_24_hours = datetime.now() - timedelta(hours=24)
+        last_24_hours_data = await user_collection.count_documents({
+            "last_token_use_time": {"$gte": last_24_hours}
+        })
+
+        # Get token verification data for today
+        start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        day_data = await user_collection.count_documents({
+            "last_token_use_time": {"$gte": start_of_day}
+        })
+
+        # Format the summary message for admins
+        summary_message = (
+            "📊 **Token Verification Stats** 📊\n\n"
+            f"🔹 Total users who verified tokens: {total_token_count}\n"
+            f"🔹 Total tokens verified: {total_verifications_count}\n"
+            f"🔹 Token verifications in the last 24 hours: {last_24_hours_data}\n"
+            f"🔹 Token verifications today: {day_data}\n"
+        )
+
+        # Send the summary message to the admin
+        await message.reply_text(summary_message)
+
+    except Exception as e:
+        logger.error(f"Error fetching token statistics: {e}")
+        await message.reply_text("An error occurred while fetching token statistics. Please try again later.")
+
+
 # /plans command to show subscription plans
 @Client.on_message(filters.command('plans') & filters.private)
 async def show_plans(client: Client, message: Message):
