@@ -428,46 +428,7 @@ async def start_command(client: Client, message: Message):
 
 
 
-# Admin command to give premium status and credits
-@Bot.on_message(filters.command("givepr") & filters.user(ADMIN_IDS))
-async def give_premium_status(client: Client, message: Message):
-    try:
-        _, user_id, credits, premium_status = message.text.split()
-        user_id = int(user_id)
-        credits = int(credits)
 
-        if premium_status not in PREMIUM_TIERS:
-            await message.reply("Invalid premium status. Choose from: bronze, silver, gold.")
-            return
-
-        user_data = await users_collection.find_one({"user_id": user_id})
-        if not user_data:
-            user_data = {"user_id": user_id, "credits": 0, "is_premium": False, "premium_status": "normal"}
-
-        user_data["credits"] = credits
-        user_data["is_premium"] = True
-        user_data["premium_status"] = premium_status
-
-        await users_collection.update_one({"user_id": user_id}, {"$set": user_data}, upsert=True)
-        await message.reply(f"User {user_id} is now a {premium_status} member with {credits} credits!")
-    except Exception as e:
-        await message.reply(f"Error: {e}")
-
-
-# Command for users to check their premium status and remaining credits
-@Bot.on_message(filters.command("checkpr"))
-async def check_premium(client: Client, message: Message):
-    user_id = message.from_user.id
-    user_data = await users_collection.find_one({"user_id": user_id})
-
-    if not user_data:
-        await message.reply("You are not registered in the system.")
-        return
-
-    credits = user_data.get("credits", 0)
-    premium_status = user_data.get("premium_status", "normal")
-
-    await message.reply(f"You have {credits} credits and your premium status is {premium_status}.")
 
 
 # Admin command to manually increase or decrease credits
