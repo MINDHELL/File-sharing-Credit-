@@ -34,7 +34,7 @@ async def add_credits(client: Client, message: Message):
     user_id = message.from_user.id
 
     if len(message.command) != 2:
-        await message.reply_text("Usage: /addcredits <credits>")
+        await message.reply_text("Usage: /addcredits credits")
         return
 
     try:
@@ -63,7 +63,7 @@ async def add_credits(client: Client, message: Message):
 @Client.on_message(filters.command('givepr') & filters.user(ADMINS))
 async def give_premium_status(client: Client, message: Message):
     if len(message.command) != 4:
-        await message.reply_text("Usage: /givepr <user_id> <credits> <premium_status>")
+        await message.reply_text("Usage: /givepr user_id credits premium_status")
         return
     
     try:
@@ -100,7 +100,7 @@ async def give_premium_status(client: Client, message: Message):
             logger.warning(f"Could not notify user {user_id}: {e}")
         
     except ValueError:
-        await message.reply_text("Invalid arguments. Ensure <user_id> and <credits> are integers.")
+        await message.reply_text("Invalid arguments. Ensure user_id and credits are integers.")
     except Exception as e:
         logger.error(f"Error in give_premium_status: {e}")
         await message.reply_text("An error occurred while assigning premium status.")
@@ -114,9 +114,9 @@ async def check_premium_status(client: Client, message: Message):
     if user.get("is_premium", False):
         status = user.get("premium_status", "Unknown")
         limit = user.get("limit", 0)
-        await message.reply_text(f"🏆 **Premium Status:** {status}\n💳 **Credits:** {limit}")
+        await message.reply_text(f"🏆 <b>Premium Status: {status}\n💳 Credits: {limit}</b>")
     else:
-        await message.reply_text("You are not a premium user. \n**Credits:** {limit} \nBecome Premium user /plans")
+        await message.reply_text(f"You are not a premium user. \n<b>Credits:</b> {limit} \nBecome Premium user /plans")
     
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
@@ -128,7 +128,7 @@ async def check_command(client: Client, message: Message):
     try:
         user = await get_user(user_id)
         user_limit = user.get("limit", START_COMMAND_LIMIT)
-        await message.reply_text(f"💳 **Your current limit is {user_limit} credits.**")
+        await message.reply_text(f"💳 <b>Your current limit is {user_limit} credits.</b>")
         asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
     except Exception as e:
         logger.error(f"Error in check_command: {e}")
@@ -212,9 +212,9 @@ async def help_command(client: Client, message: Message):
 /stats - checking your bot uptime.
 /users - view bot statistics (Admins only).
 /broadcast - broadcast any messages to bot users (Admins only).
-/addcredits <credits> - Add credits to your account (Admins only).
-/givecredits <user_id> <credits> - Give credits to a user (Admins only).
-/givepr <user_id> <credits> <premium_status> - Assign premium status to a user (Admins only).
+/addcredits credits - Add credits to your account (Admins only).
+/givecredits user_id credits - Give credits to a user (Admins only).
+/givepr user_id credits premium_status - Assign premium status to a user (Admins only).
 /count - Show token usage statistics (Admins only).
 /plans - View subscription plans.
 /upi - Show UPI payment details.
