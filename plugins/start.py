@@ -69,7 +69,7 @@ async def start_command(client: Client, message: Message):
     user_data = await user_collection.find_one({"_id": user_id})
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
-    is_premium = user.get("is_premium", False)
+    is_premium = user_data.get("is_premium", False)
 
     # Generate a new token if no previous one exists
     #if not previous_token:
