@@ -1,18 +1,19 @@
 # https://t.me/Ultroid_Official/524
 
-# https://t.me/Ultroid_Official/524
-
 from bot import Bot
-from pyrogram import filters
+from pyrogram import filters, Client
 from config import *
 from database.database import *
 from helper_func import *
 from datetime import datetime
 from plugins.start import *
-from pyrogram.types import Message, CallbackQuery
+from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import time
+import asyncio
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Admin command to manually increase or decrease credits
 @Bot.on_message(filters.command("givecredits") & filters.user(ADMIN_IDS))
@@ -26,10 +27,10 @@ async def give_credits(client: Client, message: Message):
         await message.reply(f"Gave {credits} credits to user {user_id}.")
     except Exception as e:
         await message.reply(f"Error: {e}")
-        
+
+# Admin command to add credits to a user
 @Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
 async def add_credits(client: Client, message: Message):
-    """Admin command to add credits to a user."""
     user_id = message.from_user.id
 
     if len(message.command) != 2:
@@ -58,9 +59,9 @@ async def add_credits(client: Client, message: Message):
         logger.error(f"Error in add_credits: {e}")
         await message.reply_text("An error occurred while adding credits.")
 
+# Admin command to assign premium status and credits to a user
 @Bot.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
 async def give_premium_status(client: Client, message: Message):
-    """Admin command to assign premium status and credits to a user."""
     if len(message.command) != 4:
         await message.reply_text("Usage: /givepr <user_id> <credits> <premium_status>")
         return
@@ -104,27 +105,24 @@ async def give_premium_status(client: Client, message: Message):
         logger.error(f"Error in give_premium_status: {e}")
         await message.reply_text("An error occurred while assigning premium status.")
 
-
+# User command to check their premium status and remaining credits
 @Bot.on_message(filters.command('checkpr') & filters.private)
 async def check_premium_status(client: Client, message: Message):
-    """User command to check their premium status and remaining credits."""
     user_id = message.from_user.id
     user = await get_user(user_id)
     
-    if user["is_premium"]:
+    if user.get("is_premium", False):
         status = user.get("premium_status", "Unknown")
         limit = user.get("limit", 0)
         await message.reply_text(f"🏆 **Premium Status:** {status}\n💳 **Credits:** {limit}")
     else:
         await message.reply_text("You are not a premium user.")
     
-    # Optionally delete the message after a delay
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
-
+# User command to check their current credit limit
 @Bot.on_message(filters.command('check') & filters.private)
 async def check_command(client: Client, message: Message):
-    """User command to check their current credit limit."""
     user_id = message.from_user.id
 
     try:
@@ -137,19 +135,16 @@ async def check_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while checking your limit.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
+# Admin command to display token usage statistics
 @Bot.on_message(filters.command('count') & filters.private)
 async def count_command(client: Client, message: Message):
-    """Admin command to display token usage statistics."""
     user_id = message.from_user.id
     if user_id not in ADMIN_IDS:
         await message.reply_text("You do not have permission to use this command.")
         return
     
     try:
-        # Get the count of verifications in the last 24 hours
         last_24h_count = await get_verification_count("24h")
-
-        # Get the count of verifications today
         today_count = await get_verification_count("today")
 
         count_message = (
@@ -165,7 +160,6 @@ async def count_command(client: Client, message: Message):
         logger.error(f"Error in count_command: {e}")
         error_message = await message.reply_text("An error occurred while retrieving count data.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
-
 
 # /plans command to show subscription plans
 @Bot.on_message(filters.command('plans') & filters.private)
@@ -204,4 +198,3 @@ async def upi_info(bot: Bot, message: Message):
             [[InlineKeyboardButton("Contact Owner", url=f"https://t.me/{OWNER}")]]
         )
     )
-
