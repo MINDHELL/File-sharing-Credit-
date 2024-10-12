@@ -45,7 +45,36 @@ CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
 AUTO_DELETE_DELAY = 100      # Delay to auto-delete messages
 ADMIN_IDS = [6695586027]
 
+@Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
+async def add_credits(client: Client, message: Message):
+    """Admin command to add credits to a user."""
+    user_id = message.from_user.id
 
+    if len(message.command) != 2:
+        await message.reply_text("Usage: /addcredits <credits>")
+        return
+
+    try:
+        credits_to_add = int(message.command[1])
+        
+        if credits_to_add <= 0 or credits_to_add > 20:
+            await message.reply_text("You can only add between 1 and 20 credits at a time.")
+            return
+        
+        can_add = await can_increase_credits(user_id, credits_to_add)
+        if not can_add:
+            await message.reply_text("You've reached the credit increase limit for today (20 credits). Try again later.")
+            return
+
+        await increase_user_limit(user_id, credits_to_add)
+        await log_token_usage(user_id, credits_to_add)
+        await message.reply_text(f"✅ Successfully added {credits_to_add} credits to your account.")
+
+    except ValueError:
+        await message.reply_text("Invalid number of credits. Please enter a valid integer.")
+    except Exception as e:
+        logger.error(f"Error in add_credits: {e}")
+        await message.reply_text("An error occurred while adding credits.")
 
 @Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
 async def add_credits(client: Client, message: Message):
@@ -102,7 +131,7 @@ async def give_premium_status(client: Client, message: Message):
             'Gold': 200
         }
         
-        if credits not in premium_credits.values():
+        if credits != premium_credits[premium_status]:
             await message.reply_text("Invalid credit amount for the specified premium status.")
             return
         
@@ -121,10 +150,10 @@ async def give_premium_status(client: Client, message: Message):
         
     except ValueError:
         await message.reply_text("Invalid arguments. Ensure <user_id> and <credits> are integers.")
-        return
     except Exception as e:
         logger.error(f"Error in give_premium_status: {e}")
         await message.reply_text("An error occurred while assigning premium status.")
+
 
 @Bot.on_message(filters.command('checkpr') & filters.private)
 async def check_premium_status(client: Client, message: Message):
@@ -142,44 +171,6 @@ async def check_premium_status(client: Client, message: Message):
     # Optionally delete the message after a delay
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
-@Bot.on_message(filters.command('addcredits') & filters.private)
-async def add_credits(client: Client, message: Message):
-    """User command to add credits using tokens, limited to 20 credits per 24 hours."""
-    user_id = message.from_user.id
-    
-    if len(message.command) != 2:
-        await message.reply_text("Usage: /addcredits <credits>")
-        return
-    
-    try:
-        credits_to_add = int(message.command[1])
-        
-        if credits_to_add <= 0:
-            await message.reply_text("Credits to add must be a positive integer.")
-            return
-        
-        if credits_to_add > 20:
-            await message.reply_text("You can only add up to 20 credits at a time.")
-            return
-        
-        # Check if the user can increase their credits within the last 24 hours
-        can_add = await can_increase_credits(user_id, credits_to_add)
-        
-        if not can_add:
-            await message.reply_text("You've reached the credit increase limit for today (20 credits). Try again later.")
-            return
-        
-        # Proceed to add credits
-        await increase_user_limit(user_id, credits_to_add)
-        await log_token_usage(user_id, credits_to_add)
-        await message.reply_text(f"✅ Successfully added {credits_to_add} credits to your account.")
-        
-    except ValueError:
-        await message.reply_text("Invalid number of credits. Please enter a valid integer.")
-        return
-    except Exception as e:
-        logger.error(f"Error in add_credits: {e}")
-        await message.reply_text("An error occurred while adding credits.")
 
 @Bot.on_message(filters.command('check') & filters.private)
 async def check_command(client: Client, message: Message):
