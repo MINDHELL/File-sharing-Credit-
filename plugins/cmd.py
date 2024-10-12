@@ -29,7 +29,7 @@ async def give_credits(client: Client, message: Message):
         await message.reply(f"Error: {e}")
 
 # Admin command to add credits to a user
-@Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
 async def add_credits(client: Client, message: Message):
     user_id = message.from_user.id
 
@@ -60,7 +60,7 @@ async def add_credits(client: Client, message: Message):
         await message.reply_text("An error occurred while adding credits.")
 
 # Admin command to assign premium status and credits to a user
-@Bot.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
+@Client.on_message(filters.command('givepr') & filters.user(ADMIN_IDS))
 async def give_premium_status(client: Client, message: Message):
     if len(message.command) != 4:
         await message.reply_text("Usage: /givepr <user_id> <credits> <premium_status>")
@@ -106,7 +106,7 @@ async def give_premium_status(client: Client, message: Message):
         await message.reply_text("An error occurred while assigning premium status.")
 
 # User command to check their premium status and remaining credits
-@Bot.on_message(filters.command('checkpr') & filters.private)
+@Client.on_message(filters.command('checkpr') & filters.private)
 async def check_premium_status(client: Client, message: Message):
     user_id = message.from_user.id
     user = await get_user(user_id)
@@ -121,7 +121,7 @@ async def check_premium_status(client: Client, message: Message):
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
 # User command to check their current credit limit
-@Bot.on_message(filters.command('check') & filters.private)
+@Client.on_message(filters.command('check') & filters.private)
 async def check_command(client: Client, message: Message):
     user_id = message.from_user.id
 
@@ -136,7 +136,7 @@ async def check_command(client: Client, message: Message):
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
 # Admin command to display token usage statistics
-@Bot.on_message(filters.command('count') & filters.private)
+@Client.on_message(filters.command('count') & filters.private)
 async def count_command(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id not in ADMIN_IDS:
@@ -162,20 +162,14 @@ async def count_command(client: Client, message: Message):
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
 # /plans command to show subscription plans
-@Bot.on_message(filters.command('plans') & filters.private)
-async def show_plans(bot: Bot, message: Message):
+@Client.on_message(filters.command('plans') & filters.private)
+async def show_plans(client: Client, message: Message):
     plans_text = """
-<b>Available Subscription Plans:</b>
+🎁 <b>Available Subscription Plans:</b>
 
-1. 7 Days Premium  - 20₹
-2. 15 Days Premium - 35₹
-3. 30 Days Premium - 50₹
-4. 90 Days Premium - 100₹
-
-🎁 <b>Premium Features:</b>
-- No need for verification
-- Direct access to files
-- Ad-free experience
+1. 50  Credit - Bronze Premium - 20₹
+2. 100 Credit - Silver Premium - 35₹
+3. 200 Credit - Gold   Premium - 50₹
 
 To subscribe, click the "Pay via UPI" button below. 
 """
@@ -187,8 +181,8 @@ To subscribe, click the "Pay via UPI" button below.
     await message.reply(plans_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
 
 # /upi command to show payment QR and options
-@Bot.on_message(filters.command('upi') & filters.private)
-async def upi_info(bot: Bot, message: Message):
+@Client.on_message(filters.command('upi') & filters.private)
+async def upi_info(client: Client, message: Message):
     await bot.send_photo(
         chat_id=message.chat.id,
         photo=PAYMENT_QR,
