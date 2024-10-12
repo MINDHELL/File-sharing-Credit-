@@ -71,14 +71,6 @@ async def notify_user(client, user_id, message):
         logger.warning(f"Could not notify user {user_id}: {e}")
 
       
-# Utility function to delete a message after a delay
-async def delete_message_after_delay(message: Message, delay: int):
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-        logger.info(f"Deleted message from user {message.from_user.id} after {delay} seconds.")
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
 
 
 # Increase or decrease user credits
