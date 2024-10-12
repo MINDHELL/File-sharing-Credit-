@@ -114,7 +114,7 @@ async def auto_remove_premium(user_id):
     
 async def decode(base64_string):
     # Determine if it's a 'limit' link or a regular start link
-    if base64_string.startswith("limit_"):
+    if base64_string.startswith("verify_"):
         base64_string = base64_string.replace("verify_", "", 1)  # Remove the 'limit_' prefix
 
     # Standard base64 decoding process
