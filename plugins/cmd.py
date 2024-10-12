@@ -1,12 +1,9 @@
-# https://t.me/Ultroid_Official/524
-
 from bot import Bot
 from pyrogram import filters, Client
 from config import *
 from database.database import *
 from helper_func import *
 from datetime import datetime
-#from plugins.start import *
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
 import asyncio
@@ -14,6 +11,14 @@ import logging
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Function to delete a message after a specified delay
+async def delete_message_after_delay(message: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
 
 # Admin command to manually increase or decrease credits
 @Client.on_message(filters.command("givecredits") & filters.user(ADMINS))
@@ -114,9 +119,9 @@ async def check_premium_status(client: Client, message: Message):
     if user.get("is_premium", False):
         status = user.get("premium_status", "Unknown")
         limit = user.get("limit", 0)
-        await message.reply_text(f"🏆 <b>Premium Status: {status}\n💳 Credits: {limit}</b>")
+        await message.reply_text(f"🏆 <b>Premium Status: {status}\n💳 Credits: {limit}</b>", parse_mode=ParseMode.HTML)
     else:
-        await message.reply_text(f"You are not a premium user. \n<b>Credits:</b> {limit} \nBecome Premium user /plans")
+        await message.reply_text(f"You are not a premium user. \n<b>Credits:</b> {limit} \nBecome Premium user /plans", parse_mode=ParseMode.HTML)
     
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
@@ -128,7 +133,7 @@ async def check_command(client: Client, message: Message):
     try:
         user = await get_user(user_id)
         user_limit = user.get("limit", START_COMMAND_LIMIT)
-        await message.reply_text(f"💳 <b>Your current limit is {user_limit} credits.</b>")
+        await message.reply_text(f"💳 <b>Your current limit is {user_limit} credits.</b>", parse_mode=ParseMode.HTML)
         asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
     except Exception as e:
         logger.error(f"Error in check_command: {e}")
@@ -195,7 +200,7 @@ async def upi_info(client: Client, message: Message):
         )
     except Exception as e:
         await message.reply_text("Sorry, I couldn't send the UPI information. Please try again later.")
-        print(f"Error occurred while sending UPI info: {e}")
+        logger.error(f"Error occurred while sending UPI info: {e}")
 
 # /help command to show available commands
 @Client.on_message(filters.command('help') & filters.private)
@@ -207,16 +212,22 @@ async def help_command(client: Client, message: Message):
 /help - Show this help message.
 /check - Check your current credit limit.
 /profile - Check your premium status and remaining credits.
-/batch - create link for more than one posts.
-/genlink - create link for one post.
-/stats - checking your bot uptime.
-/users - view bot statistics (Admins only).
-/broadcast - broadcast any messages to bot users (Admins only).
+/batch - Create link for more than one posts.
+/genlink - Create link for one post.
+/stats - Check your bot uptime.
+/users - View bot statistics (Admins only).
+/broadcast - Broadcast any messages to bot users (Admins only).
 /addcredits credits - Add credits to your account (Admins only).
 /givecredits user_id credits - Give credits to a user (Admins only).
-/givepr user_id credits premium_status - Assign premium status to a user (Admins only).
+/givepr user_id credits premium_status - Give premium status to a user (Admins only).
 /count - Show token usage statistics (Admins only).
-/plans - View subscription plans.
-/upi - Show UPI payment details.
-    """
+/plans - Show available premium plans.
+/upi - Show UPI payment options.
+"""
     await message.reply(help_text, parse_mode=ParseMode.HTML)
+
+# Handle callback queries for UPI payment info
+@Client.on_callback_query(filters.regex('upi_info'))
+async def handle_upi_info(client: Client, callback_query: CallbackQuery):
+    await callback_query.answer()
+    await upi_info(client, callback_query.message)
