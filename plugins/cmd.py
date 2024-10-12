@@ -183,12 +183,17 @@ To subscribe, click the "Pay via UPI" button below.
 # /upi command to show payment QR and options
 @Client.on_message(filters.command('upi') & filters.private)
 async def upi_info(client: Client, message: Message):
-    await bot.send_photo(
-        chat_id=message.chat.id,
-        photo=PAYMENT_QR,
-        caption=PAYMENT_TEXT,
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Contact Owner", url=f"https://t.me/{OWNER}")]]
+    try:
+        await client.send_photo(
+            chat_id=message.chat.id,
+            photo=PAYMENT_QR,
+            caption=PAYMENT_TEXT,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Contact Owner", url=f"https://t.me/{OWNER}")]]
+            )
         )
-    )
+    except Exception as e:
+        await message.reply_text("Sorry, I couldn't send the UPI information. Please try again later.")
+        print(f"Error occurred while sending UPI info: {e}")
+
