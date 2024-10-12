@@ -168,8 +168,6 @@ async def start_command(client: Client, message: Message):
 
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
-@Client.on_message(filters.command('start') & filters.private)
-async def start_command(client: Client, message: Message):
     """Handles the /start command for user interactions."""
     user_id = message.from_user.id
     text = message.text
