@@ -6,7 +6,7 @@ from config import *
 from database.database import *
 from helper_func import *
 from datetime import datetime
-from plugins.start import *
+#from plugins.start import *
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
 import asyncio
