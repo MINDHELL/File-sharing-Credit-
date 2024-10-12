@@ -265,8 +265,8 @@ async def start_command(client: Client, message: Message):
     # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
         limit_message = (
-            "⚠️ Your credit limit has been reached.\n"
-	    "🎁 Available Subscription Plans: /plans\n"
+            "⚠️ Your credit limit has been reached.\n\n"
+	    "🎁 Available Subscription Plans: /plans\n\n"
             "Use the following link to increase your limit by 20 credits (limited to two times in 24 hours) , Get Subscription to overcome limit:"
         )
         buttons = [
