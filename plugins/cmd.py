@@ -171,7 +171,7 @@ async def show_plans(client: Client, message: Message):
 2. 100 Credit - Silver Premium - 35₹
 3. 200 Credit - Gold   Premium - 50₹
 
-To subscribe, click the "Pay via UPI" button below. 
+To subscribe, click the "Pay via UPI" button below or use /upi cmd 
 """
     buttons = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Pay via UPI", callback_data="upi_info")],
