@@ -6,6 +6,7 @@ from pyrogram.enums import ParseMode
 from bot import Bot
 from config import OWNER_ID, ADMINS, CHANNEL, SUPPORT_GROUP
 from database.database import *
+from plugins.cmd import *
 
 @Bot.on_callback_query()
 async def cb_handler(client: Bot, query: CallbackQuery):
@@ -33,6 +34,13 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             await query.message.reply_to_message.delete()
         except Exception as e:
             print(f"Error deleting reply-to message: {e}")
+
+    elif data == "upi_info":
+        await upi_info(client, query.message)  # Ensure upi_info is defined
+
+    elif data == "show_plans":
+        await show_plans(client, query.message)  # Ensure show_plans is defined
+    
     elif data == "check_tokens":
         user_id = query.from_user.id
         is_admin = user_id in ADMINS
