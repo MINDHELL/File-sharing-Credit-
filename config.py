@@ -7,7 +7,10 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 
-
+MAX_TOKEN_USES_PER_DAY = 2  # Maximum times a user can use the token in 24 hours
+CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
+#AUTO_DELETE_DELAY = 100      # Delay to auto-delete messages
+ADMIN_IDS = [6695586027]
 START_COMMAND_LIMIT = 15  # Default limit for new users
 LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verification
 AUTO_DELETE_DELAY = 600 
