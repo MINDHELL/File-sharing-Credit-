@@ -198,7 +198,7 @@ async def start_command(client: Client, message: Message):
     token_use_count = user_data.get("token_use_count", 0)
     last_token_use_time = user_data.get("last_token_use_time", None)
 
-    
+    # Generate a new token if no previous one exists
     if not previous_token:
         previous_token = str(uuid.uuid4())
         await user_collection.update_one(
@@ -208,24 +208,23 @@ async def start_command(client: Client, message: Message):
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
-	
+
     # Handle verification token usage
     if len(text) > 7 and "verify_" in text:
         provided_token = text.split("verify_", 1)[1]
         current_time = datetime.now()
 
         try:
+            if provided_token == previous_token:
+                current_time = datetime.now()
+                if last_token_use_time:
+                    time_diff = current_time - last_token_use_time
+                else:
+                    time_diff = timedelta(days=1)  # First-time use
 
-	    if provided_token == previous_token:
-    		current_time = datetime.now()
-   		if last_token_use_time:
-        	    time_diff = current_time - last_token_use_time
-    		else:
-        	    time_diff = timedelta(days=1)  # First-time use
-
-    		# Reset token usage count after 24 hours
-    		if time_diff > timedelta(hours=24):
-        	    token_use_count = 0
+                # Reset token usage count after 24 hours
+                if time_diff > timedelta(hours=24):
+                    token_use_count = 0
 
                 # Check if the user has exceeded the max token usage
                 if token_use_count >= MAX_TOKEN_USES_PER_DAY:
@@ -236,19 +235,15 @@ async def start_command(client: Client, message: Message):
                     asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
 
-		# Token is valid, increment limit and update the token usage count
-                # Verification successful, increase limit by 10 credits
+                # Token is valid, increment limit and update the token usage count
                 await user_collection.update_one(
                     {"_id": user_id},
                     {
                         "$inc": {"limit": CREDIT_INCREMENT, "token_use_count": 1},
-                        "$set": {
-                            #"token_use_count": token_use_count + 1,
-                            "last_token_use_time": current_time
-                        }
+                        "$set": {"last_token_use_time": current_time}
                     }
                 )
-		logger.info(f"Token used by user {user_id}. New token use count: {token_use_count + 1}")
+                logger.info(f"Token used by user {user_id}. New token use count: {token_use_count + 1}")
                 confirmation_message = await message.reply_text(
                     f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \n"
                     f"Use /check to view your current limit."
@@ -265,7 +260,6 @@ async def start_command(client: Client, message: Message):
             await message.reply_text("An error occurred. Please try again later.")
             return
 
-    # If the limit is reached, prompt the user to use the verification link
     if user_limit <= 0:
         limit_message = (
             "⚠️ Your credit limit has been reached.\n\n"
