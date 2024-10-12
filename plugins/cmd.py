@@ -20,18 +20,46 @@ async def delete_message_after_delay(message: Message, delay: int):
     except Exception as e:
         logger.error(f"Failed to delete message: {e}")
 
-# Admin command to manually increase or decrease credits
-@Client.on_message(filters.command("givecredits") & filters.user(ADMINS))
+@Client.on_message(filters.command('givecredits') & filters.private)
 async def give_credits(client: Client, message: Message):
-    try:
-        _, user_id, credits = message.text.split()
-        user_id = int(user_id)
-        credits = int(credits)
+    """Handles the /givecredits command for admins to give credits to a specific user."""
+    admin_id = message.from_user.id
 
-        await increase_user_limit(user_id, credits)
-        await message.reply(f"Gave {credits} credits to user {user_id}.")
+    # Check if the user is an admin
+    if admin_id not in ADMIN_IDS:
+        await message.reply_text("❌ You are not authorized to use this command.")
+        return
+
+    # Ensure the command has the correct format
+    try:
+        command_parts = message.text.split()
+        if len(command_parts) != 3:
+            await message.reply_text("❌ Invalid command format. Use: /givecredits <user_id> <credits>")
+            return
+
+        user_id = int(command_parts[1])
+        credits_to_add = int(command_parts[2])
+
+        # Find the user in the database
+        user_data = await user_collection.find_one({"_id": user_id})
+        if not user_data:
+            await message.reply_text(f"❌ User with ID {user_id} not found.")
+            return
+
+        # Update the user's credit limit
+        await user_collection.update_one(
+            {"_id": user_id},
+            {"$inc": {"limit": credits_to_add}}
+        )
+
+        await message.reply_text(f"✅ Successfully added {credits_to_add} credits to user {user_id}.")
+
+    except ValueError:
+        await message.reply_text("❌ Invalid user ID or credits value. Please enter valid numbers.")
     except Exception as e:
-        await message.reply(f"Error: {e}")
+        logger.error(f"Error while giving credits: {e}")
+        await message.reply_text("❌ An error occurred while processing your request. Please try again later.")
+
 
 # Admin command to add credits to a user
 @Client.on_message(filters.command('addcredits') & filters.private & filters.user(ADMINS))
@@ -158,33 +186,8 @@ async def check_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while checking your limit.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
-# Admin command to display token usage statistics
+
 @Client.on_message(filters.command('count') & filters.private)
-async def count_command(client: Client, message: Message):
-    user_id = message.from_user.id
-    if user_id not in ADMINS:
-        await message.reply_text("You do not have permission to use this command.")
-        return
-    
-    try:
-        last_24h_count = await get_verification_count("24h")
-        today_count = await get_verification_count("today")
-
-        count_message = (
-            f"📊 **Token Usage Statistics:**\n\n"
-            f"• **Last 24 Hours:** {last_24h_count} verifications\n"
-            f"• **Today's Verifications:** {today_count} verifications"
-        )
-
-        response_message = await message.reply_text(count_message, parse_mode=ParseMode.MARKDOWN)
-        asyncio.create_task(delete_message_after_delay(response_message, AUTO_DELETE_DELAY))
-
-    except Exception as e:
-        logger.error(f"Error in count_command: {e}")
-        error_message = await message.reply_text("An error occurred while retrieving count data.")
-        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
-
-@Client.on_message(filters.command('token_stats') & filters.private)
 async def token_stats(client: Client, message: Message):
     """Handles the /token_stats command for admins to view token verification statistics."""
     admin_id = message.from_user.id
@@ -221,7 +224,7 @@ async def token_stats(client: Client, message: Message):
             "📊 **Token Verification Stats** 📊\n\n"
             f"🔹 Total users who verified tokens: {total_token_count}\n"
             f"🔹 Total tokens verified: {total_verifications_count}\n"
-            f"🔹 Token verifications in the last 24 hours: {last_24_hours_data}\n"
+            f"🔹 Tokens in last 24 hours: {last_24_hours_data}\n"
             f"🔹 Token verifications today: {day_data}\n"
         )
 
