@@ -15,7 +15,8 @@ from config import (
     AUTO_DELETE_DELAY, LIMIT_INCREASE_AMOUNT,
     START_COMMAND_LIMIT, TUT_VID
 )
-from helper_func import decode, get_messages, get_shortlink
+#from helper_func import decode, get_messages, get_shortlink , generate_token , notify_user , delete_message_after_delay , increase_user_limit , check_premium_status , auto_remove_premium 
+from helper_func import *
 from database.database import (
     get_user, increase_user_limit, can_increase_credits, 
     set_premium_status, get_token_usage, log_token_usage,
