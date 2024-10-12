@@ -70,13 +70,13 @@ async def start_command(client: Client, message: Message):
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
     is_premium = user.get("is_premium", False)
-	"""
+
     # Generate a new token if no previous one exists
-    if not previous_token:
-        previous_token = str(uuid.uuid4())
-        await set_previous_token(user_id, previous_token)
-        logger.info(f"Generated new token for user {user_id}.")
-	"""
+    #if not previous_token:
+    #    previous_token = str(uuid.uuid4())
+    #    await set_previous_token(user_id, previous_token)
+    #    logger.info(f"Generated new token for user {user_id}.")
+
      if not previous_token:
         previous_token = str(uuid.uuid4())
         await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
