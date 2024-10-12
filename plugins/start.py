@@ -45,6 +45,14 @@ CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
 AUTO_DELETE_DELAY = 100      # Delay to auto-delete messages
 ADMIN_IDS = [6695586027]
 
+async def delete_message_after_delay(message: Message, delay: int):
+    """Delete a message after a specified delay."""
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
+
 @Bot.on_message(filters.command('addcredits') & filters.private & filters.user(ADMIN_IDS))
 async def add_credits(client: Client, message: Message):
     """Admin command to add credits to a user."""
