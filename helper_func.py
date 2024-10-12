@@ -48,7 +48,28 @@ async def decode(base64_string):
     string = string_bytes.decode("ascii")
     return string
 """
+def generate_token(length=10):
+    """Generates a random alphanumeric token."""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
+async def get_shortlink(url, api, link):
+    """Generates a shortened URL using Shortzy."""
+    try:
+        shortened_link = await shortzy.convert(link)
+        return shortened_link
+    except Exception as e:
+        logger.error(f"Error generating short link: {str(e)}")
+        return link  # Fallback to original link if shortening fails
+
+async def notify_user(client, user_id, message):
+    """Helper function to send a notification to a user."""
+    try:
+        await client.send_message(chat_id=user_id, text=message)
+        logger.info(f"Notified user {user_id} about premium status assignment.")
+    except Exception as e:
+        logger.warning(f"Could not notify user {user_id}: {e}")
+
+      
 # Utility function to delete a message after a delay
 async def delete_message_after_delay(message: Message, delay: int):
     await asyncio.sleep(delay)
