@@ -63,22 +63,29 @@ async def start_command(client: Client, message: Message):
             return
 
     # Retrieve user data
-    user = await get_user(user_id) or {}
-    user_limit = user.get("limit", START_COMMAND_LIMIT)
-    previous_token = user.get("verify_token", "")
+    #user = await get_user(user_id) or {}
+    #user_limit = user.get("limit", START_COMMAND_LIMIT)
+    #previous_token = user.get("verify_token", "")
+    user_data = await user_collection.find_one({"_id": user_id})
+    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_data.get("previous_token")
     is_premium = user.get("is_premium", False)
-
+	"""
     # Generate a new token if no previous one exists
     if not previous_token:
         previous_token = str(uuid.uuid4())
         await set_previous_token(user_id, previous_token)
         logger.info(f"Generated new token for user {user_id}.")
+	"""
+     if not previous_token:
+        previous_token = str(uuid.uuid4())
+        await user_collection.update_one({"_id": user_id}, {"$set": {"previous_token": previous_token}}, upsert=True)
 
     # Generate the verification link
     verification_link = f"https://t.me/{client.username}?start=verify_{previous_token}"
     shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
 
-    if "verify_" in text:
+    if len(message.text) > 7 and "verify_" in message.text:
         try:
             provided_token = text.split("verify_", 1)[1]
             token_use_count = user.get("token_use_count", 0)
@@ -101,7 +108,7 @@ async def start_command(client: Client, message: Message):
                     return
 
                 # Verification successful, increase limit by 10 credits
-                await increase_user_limit(user_id, CREDIT_INCREMENT)
+                await increase_user_limit(user_id, user_limit + CREDIT_INCREMENT)
                 await log_verification(user_id)
 
                 # Update token use count and last token use time
@@ -159,22 +166,48 @@ async def start_command(client: Client, message: Message):
     if len(text) > 7:
         try:
             base64_string = text.split(" ", 1)[1]
-            string = await decode(base64_string)
-            argument = string.split("-")
-
-            if len(argument) == 3:
-                start, end = map(lambda x: int(int(x) / abs(client.db_channel.id)), argument[1:])
-                ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-            elif len(argument) == 2:
+        except IndexError:
+            return
+        
+        string = await decode(base64_string)
+        argument = string.split("-")
+        
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+            
+            if start <= end:
+                ids = range(start, end + 1)
+            else:
+                ids = list(range(start, end - 1, -1))
+        elif len(argument) == 2:
+            try:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-
-            temp_msg = await message.reply("Please wait...")
+            except Exception as e:
+                logger.error(f"Error parsing arguments: {e}")
+                return
+        
+        temp_msg = await message.reply("Please wait...")
+        try:
             messages = await get_messages(client, ids)
-            await temp_msg.delete()
+        except Exception as e:
+            await message.reply_text("Something went wrong..!")
+            logger.error(f"Error getting messages: {e}")
+            return
+        
+        await temp_msg.delete()
 
-            for msg in messages:
-                caption = CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name) if CUSTOM_CAPTION and msg.document else msg.caption.html if msg.caption else ""
-                reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
+        for msg in messages:
+            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                            filename=msg.document.file_name) if bool(CUSTOM_CAPTION) & bool(msg.document) else "" if not msg.caption else msg.caption.html
+
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
+
+            try:
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
@@ -184,32 +217,43 @@ async def start_command(client: Client, message: Message):
                 )
                 asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
                 await asyncio.sleep(0.5)
-        except FloodWait as e:
-            await asyncio.sleep(e.x)
-        except Exception as e:
-            logger.error(f"Error processing message copy: {e}")
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
+                pass
         return
-
-    # Default welcome message
-    reply_markup = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")]
-        ]
-    )
-    welcome_message = await message.reply_text(
-        text=START_MSG.format(
-            first=message.from_user.first_name,
-            last=message.from_user.last_name,
-            username=f'@{message.from_user.username}' if message.from_user.username else None,
-            mention=message.from_user.mention,
-            id=message.from_user.id
-        ),
-        reply_markup=reply_markup,
-        disable_web_page_preview=True,
-        quote=True
-    )
-    asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
-
+    else:
+        reply_markup = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("😊 About Me", callback_data="about"),
+                    InlineKeyboardButton("🔒 Close", callback_data="close")
+                ]
+            ]
+        )
+        welcome_message = await message.reply_text(
+            text=START_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+            quote=True
+        )
+        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        return
 
 
 #=========================================================================================##
