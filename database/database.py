@@ -187,6 +187,16 @@ async def log_token_usage(user_id, credits):
     )
     logger.info(f"Logged token usage for user {user_id}: {credits} credits.")
 
+async def get_token_usage(user_id):
+    """Retrieves the user's token usage."""
+    user = await user_collection.find_one({"_id": user_id})
+    if user:
+        token_usage = user.get("token_usage", [])
+        logger.debug(f"Retrieved token usage for user {user_id}: {token_usage}")
+        return token_usage
+    logger.warning(f"User {user_id} not found when retrieving token usage.")
+    return None
+
 async def remove_premium_if_low(user_id):
     """Removes premium status if user's credits fall below 20."""
     user = await get_user(user_id)
