@@ -114,15 +114,33 @@ async def give_premium_status(client: Client, message: Message):
 @Client.on_message(filters.command('profile') & filters.private)
 async def check_premium_status(client: Client, message: Message):
     user_id = message.from_user.id
-    user = await get_user(user_id)
-    
-    if user.get("is_premium", False):
-        status = user.get("premium_status", "Unknown")
-        limit = user.get("limit", 0)
-        await message.reply_text(f"🏆 <b>Premium Status: {status}\n💳 Credits: {limit}</b>", parse_mode=ParseMode.HTML)
+
+    # Retrieve user data from the database
+    user = await user_collection.find_one({"_id": user_id})
+
+    if user is None:
+        await message.reply_text("You are not registered in our database. Please use /start to register.")
+        return
+
+    # Check if the user has premium status
+    is_premium = user.get("is_premium", False)
+    limit = user.get("limit", 0)
+
+    if is_premium:
+        # Get premium status information
+        premium_status = user.get("premium_status", "Unknown")
+        await message.reply_text(
+            f"🏆 <b>Premium Status: {premium_status}</b>\n💳 <b>Credits: {limit}</b>",
+            parse_mode="HTML"
+        )
     else:
-        await message.reply_text(f"You are not a premium user. \n<b>Credits:</b> {limit} \nBecome Premium user /plans", parse_mode=ParseMode.HTML)
-    
+        # Non-premium users' message
+        await message.reply_text(
+            f"You are not a premium user.\n<b>Credits:</b> {limit}\nBecome a Premium user: /plans",
+            parse_mode="HTML"
+        )
+
+    # Delete the user's command after a delay to keep the chat clean
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
 # User command to check their current credit limit
@@ -226,8 +244,10 @@ async def help_command(client: Client, message: Message):
 """
     await message.reply(help_text, parse_mode=ParseMode.HTML)
 
+"""
 # Handle callback queries for UPI payment info
 @Client.on_callback_query(filters.regex('upi_info'))
 async def handle_upi_info(client: Client, callback_query: CallbackQuery):
     await callback_query.answer()
     await upi_info(client, callback_query.message)
+"""
