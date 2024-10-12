@@ -106,7 +106,7 @@ async def give_premium_status(client: Client, message: Message):
         await message.reply_text("An error occurred while assigning premium status.")
 
 # User command to check their premium status and remaining credits
-@Client.on_message(filters.command('checkpr') & filters.private)
+@Client.on_message(filters.command('profile') & filters.private)
 async def check_premium_status(client: Client, message: Message):
     user_id = message.from_user.id
     user = await get_user(user_id)
@@ -116,7 +116,7 @@ async def check_premium_status(client: Client, message: Message):
         limit = user.get("limit", 0)
         await message.reply_text(f"🏆 **Premium Status:** {status}\n💳 **Credits:** {limit}")
     else:
-        await message.reply_text("You are not a premium user.")
+        await message.reply_text("You are not a premium user. \n**Credits:** {limit}" \nBecome Premium user /plans")
     
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
@@ -197,3 +197,26 @@ async def upi_info(client: Client, message: Message):
         await message.reply_text("Sorry, I couldn't send the UPI information. Please try again later.")
         print(f"Error occurred while sending UPI info: {e}")
 
+# /help command to show available commands
+@Client.on_message(filters.command('help') & filters.private)
+async def help_command(client: Client, message: Message):
+    help_text = """
+📖 <b>Available Commands:</b>
+
+/start - Start the bot and see welcome message.
+/help - Show this help message.
+/check - Check your current credit limit.
+/profile - Check your premium status and remaining credits.
+/batch - create link for more than one posts.
+/genlink - create link for one post.
+/stats - checking your bot uptime.
+/users - view bot statistics (Admins only).
+/broadcast - broadcast any messages to bot users (Admins only).
+/addcredits <credits> - Add credits to your account (Admins only).
+/givecredits <user_id> <credits> - Give credits to a user (Admins only).
+/givepr <user_id> <credits> <premium_status> - Assign premium status to a user (Admins only).
+/count - Show token usage statistics (Admins only).
+/plans - View subscription plans.
+/upi - Show UPI payment details.
+    """
+    await message.reply(help_text, parse_mode=ParseMode.HTML)
