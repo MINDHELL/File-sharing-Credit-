@@ -50,7 +50,7 @@ async def delete_message_after_delay(message: Message, delay: int):
 """
 @Client.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
-    """Handles the /start command for user interactions."""
+    #Handles the /start command for user interactions.
     user_id = message.from_user.id
     text = message.text
 
