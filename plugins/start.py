@@ -166,7 +166,7 @@ async def start_command(client: Client, message: Message):
         await message.reply("Your premium status has been removed as your credits dropped below 20.")
 """
 
-@Client.on_message(filters.command('start') & filters.private)
+@Client.on_message(filters.command('start') & filters.private  & subscribed)
 async def start_command(client: Client, message: Message):
     """Handles the /start command for user interactions."""
     user_id = message.from_user.id
