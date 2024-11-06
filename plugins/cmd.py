@@ -26,7 +26,7 @@ async def give_credits(client: Client, message: Message):
     admin_id = message.from_user.id
 
     # Check if the user is an admin
-    if admin_id not in ADMIN_IDS:
+    if admin_id not in ADMINS:
         await message.reply_text("❌ You are not authorized to use this command.")
         return
 
