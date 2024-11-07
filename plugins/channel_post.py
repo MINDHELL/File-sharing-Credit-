@@ -13,7 +13,7 @@ from helper_func import encode
 
 
 
-@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','broadcast','help','token_stats','batch','genlink','stats','addcredits','givepr','givecredits','profile','check','count','plans','upi']))
+@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','creditreport','broadcast','help','token_stats','batch','genlink','stats','addcredits','givepr','givecredits','profile','check','count','plans','upi']))
 async def channel_post(client: Client, message: Message):
     reply_text = await message.reply_text("Please Wait...!", quote = True)
     try:
