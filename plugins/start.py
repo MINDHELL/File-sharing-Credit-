@@ -272,8 +272,8 @@ async def start_command(client: Client, message: Message):
         ]
         reply_markup = InlineKeyboardMarkup(buttons)
         await message.reply(limit_message, reply_markup=reply_markup, protect_content=False, quote=True)
-        if AUTO_DELETE:
-	    asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+        #if AUTO_DELETE:
+	 #   asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
         return
 
     # Deduct 1 from the user's limit and proceed
@@ -353,7 +353,7 @@ async def start_command(client: Client, message: Message):
                     protect_content=PROTECT_CONTENT
                 )
                 if AUTO_DELETE:
-			asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+		    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
             except Exception as e:
                 logger.error(f"Error copying message: {e}")
                 pass
