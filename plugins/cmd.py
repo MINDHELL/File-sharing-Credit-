@@ -25,7 +25,57 @@ async def delete_message_after_delay(message: Message, delay: int):
 
 @Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
 async def generate_credit_report(client: Client, message: Message):
-    """Generates a report of all users' credits and top 10 users based on remaining credits."""
+    #Generates a report of all users' credits and top 10 users based on remaining credits.
+    try:
+        # Fetch all users' credit data from the database
+        users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
+        
+        # Sort users by remaining credits in descending order
+        sorted_users = sorted(users, key=lambda x: x.get("limit", 0), reverse=True)
+        top_10_users = sorted_users[:10]
+
+        # Prepare text file data with each user's ID and remaining credits
+        output = StringIO()
+        output.write("User ID, Remaining Credits\n")
+        for user in sorted_users:
+            output.write(f"{user['_id']}, {user.get('limit', 0)}\n")
+
+        # Save data to a .txt file
+        file_path = "/tmp/user_credits_report.txt"
+        with open(file_path, "w") as file:
+            file.write(output.getvalue())
+        
+        # Send the report file to the admin
+        await client.send_document(
+            chat_id=message.chat.id,
+            document=file_path,
+            caption="📊 Here is the detailed credit report of all users, sorted by remaining credits."
+        )
+
+        # Prepare and send the summary of the top 10 users with highest credits in a table format
+        top_10_summary = "🏆 **Top 10 Users by Credits** 🏆\n\n"
+        top_10_summary += "┌─────┬────────────┬───────────┐\n"
+        top_10_summary += "│ Rank │  User ID       │ Credits     │\n"
+        top_10_summary += "├─────┼────────────┼───────────┤\n"
+        
+        for idx, user in enumerate(top_10_users, start=1):
+            top_10_summary += f"│ {idx:^3} │ {user['_id']:^10} │ {user.get('limit', 0):^9} │\n"
+
+        top_10_summary += "└─────┴────────────┴───────────┘"
+        
+        await message.reply_text(top_10_summary)
+
+        # Cleanup: Delete the temporary file after sending
+        os.remove(file_path)
+
+    except Exception as e:
+        logger.error(f"Error in generating credit report: {e}")
+        await message.reply_text("❌ An error occurred while generating the credit report.")
+
+"""
+@Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
+async def generate_credit_report(client: Client, message: Message):
+    #Generates a report of all users' credits and top 10 users based on remaining credits.
     try:
         # Fetch all users' credit data from the database
         users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
@@ -66,54 +116,8 @@ async def generate_credit_report(client: Client, message: Message):
         logger.error(f"Error in generating credit report: {e}")
         await message.reply_text("❌ An error occurred while generating the credit report.")
 
-
-
 """
 
-@Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
-async def generate_credit_report(client: Client, message: Message):
-    #Generates a report of all users' credits and top 10 users based on remaining credits.
-    try:
-        # Fetch all users' credit data from the database
-        users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
-        
-        # Sort users by remaining credits in descending order to get the top 10
-        sorted_users = sorted(users, key=lambda x: x.get("limit", 0), reverse=True)
-        top_10_users = sorted_users[:10]
-
-        # Prepare text file data with each user's ID and remaining credits
-        output = StringIO()
-        output.write("User ID, Remaining Credits\n")
-        for user in users:
-            output.write(f"{user['_id']}, {user.get('limit', 0)}\n")
-
-        # Save data to a .txt file
-        file_path = "/tmp/user_credits_report.txt"
-        with open(file_path, "w") as file:
-            file.write(output.getvalue())
-        
-        # Send the report file to the admin
-        await client.send_document(
-            chat_id=message.chat.id,
-            document=InputFile(file_path),
-            caption="📊 Here is the detailed credit report of all users."
-        )
-
-        # Prepare and send the summary of the top 10 users with highest credits
-        top_10_summary = "🏆 **Top 10 Users by Credits** 🏆\n\n"
-        for idx, user in enumerate(top_10_users, start=1):
-            top_10_summary += f"{idx}. User ID: {user['_id']}, Credits: {user.get('limit', 0)}\n"
-
-        await message.reply_text(top_10_summary)
-
-        # Cleanup: Delete the temporary file after sending
-        os.remove(file_path)
-
-    except Exception as e:
-        logger.error(f"Error in generating credit report: {e}")
-        await message.reply_text("❌ An error occurred while generating the credit report.")
-
-"""
 
 
 @Client.on_message(filters.command('givecredits') & filters.private)
