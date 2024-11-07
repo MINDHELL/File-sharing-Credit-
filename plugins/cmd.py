@@ -391,6 +391,7 @@ async def help_command(client: Client, message: Message):
 /givecredits user_id credits - Give credits to a user (Admins only).
 /givepr user_id credits premium_status - Give premium status to a user (Admins only).
 /count - Show token usage statistics (Admins only).
+/creditreport - give txt file and top 10 user (Admins only).
 /plans - Show available premium plans.
 /upi - Show UPI payment options.
 """
