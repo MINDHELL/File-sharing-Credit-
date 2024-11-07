@@ -23,9 +23,33 @@ async def delete_message_after_delay(message: Message, delay: int):
     except Exception as e:
         logger.error(f"Failed to delete message: {e}")
 
+from bot import Bot
+from pyrogram import filters, Client
+from config import *
+from database.database import *
+from helper_func import *
+from datetime import datetime
+from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton 
+from pyrogram.enums import ParseMode
+import asyncio
+import logging
+import os
+from io import StringIO
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Function to delete a message after a specified delay
+async def delete_message_after_delay(message: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
+
 @Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
 async def generate_credit_report(client: Client, message: Message):
-    #Generates a report of all users' credits and top 10 users based on remaining credits.
+    """Generates a report of all users' credits and top 10 users based on remaining credits."""
     try:
         # Fetch all users' credit data from the database
         users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
@@ -52,17 +76,14 @@ async def generate_credit_report(client: Client, message: Message):
             caption="📊 Here is the detailed credit report of all users, sorted by remaining credits."
         )
 
-        # Prepare and send the summary of the top 10 users with highest credits in a table format
+        # Prepare and send the summary of the top 10 users with highest credits in a cleaner format
         top_10_summary = "🏆 **Top 10 Users by Credits** 🏆\n\n"
-        top_10_summary += "┌─────┬────────────┬───────────┐\n"
-        top_10_summary += "│ Rank │  User ID       │ Credits     │\n"
-        top_10_summary += "├─────┼────────────┼───────────┤\n"
+        top_10_summary += "Rank | User ID     | Credits\n"
+        top_10_summary += "---------------------------\n"
         
         for idx, user in enumerate(top_10_users, start=1):
-            top_10_summary += f"│ {idx:^3} │ {user['_id']:^10} │ {user.get('limit', 0):^9} │\n"
+            top_10_summary += f"{idx:<4} | {user['_id']:<10} | {user.get('limit', 0):>7}\n"
 
-        top_10_summary += "└─────┴────────────┴───────────┘"
-        
         await message.reply_text(top_10_summary)
 
         # Cleanup: Delete the temporary file after sending
@@ -71,6 +92,7 @@ async def generate_credit_report(client: Client, message: Message):
     except Exception as e:
         logger.error(f"Error in generating credit report: {e}")
         await message.reply_text("❌ An error occurred while generating the credit report.")
+
 
 """
 @Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
