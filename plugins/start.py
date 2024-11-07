@@ -232,7 +232,7 @@ async def start_command(client: Client, message: Message):
                         f"❌ You have already used your verification token {MAX_TOKEN_USES_PER_DAY} times in the past 24 hours. "
                         f"Please try again later or purchase premium for unlimited access."
                     )
-                    asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+                    #asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
 
                 # Token is valid, increment limit and update the token usage count
@@ -248,11 +248,11 @@ async def start_command(client: Client, message: Message):
                     f"✅ Your limit has been successfully increased by {CREDIT_INCREMENT} credits! \n"
                     f"Use /check to view your current limit."
                 )
-                asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+                #asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
                 return
             else:
                 error_message = await message.reply_text("❌ Invalid verification token. Please try again.")
-                asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+                #asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                 return
 
         except Exception as e:
@@ -272,17 +272,18 @@ async def start_command(client: Client, message: Message):
         ]
         reply_markup = InlineKeyboardMarkup(buttons)
         await message.reply(limit_message, reply_markup=reply_markup, protect_content=False, quote=True)
-        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+        if AUTO_DELETE:
+		asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
         return
 
     # Deduct 1 from the user's limit and proceed
     await user_collection.update_one({"_id": user_id}, {"$inc": {"limit": -1}})
-    logger.info(f"Deducted 1 credit from user {user_id}. New limit: {user_limit - 1}")
+    #logger.info(f"Deducted 1 credit from user {user_id}. New limit: {user_limit - 1}")
 
     if is_premium and user_limit - 1 < 20:
         # Remove premium status and notify the user
         await user_collection.update_one({"_id": user_id}, {"$set": {"is_premium": False}})
-        logger.info(f"Removed premium status for user {user_id} due to low credits.")
+        #logger.info(f"Removed premium status for user {user_id} due to low credits.")
         await message.reply("Your premium status has been removed as your credits dropped below 20.")
 
 	
@@ -339,7 +340,8 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup,
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+		if AUTO_DELETE:
+	                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
                 await asyncio.sleep(0.5)
             except FloodWait as e:
                 await asyncio.sleep(e.x)
@@ -350,7 +352,8 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup,
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                if AUTO_DELETE:
+			asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
             except Exception as e:
                 logger.error(f"Error copying message: {e}")
                 pass
@@ -376,7 +379,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        #asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
         return
 
 
