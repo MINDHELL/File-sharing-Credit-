@@ -72,7 +72,7 @@ async def generate_credit_report(client: Client, message: Message):
 
 @Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
 async def generate_credit_report(client: Client, message: Message):
-    """Generates a report of all users' credits and top 10 users based on remaining credits."""
+    #Generates a report of all users' credits and top 10 users based on remaining credits.
     try:
         # Fetch all users' credit data from the database
         users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
