@@ -323,49 +323,47 @@ async def start_command(client: Client, message: Message):
             await message.reply_text("Something went wrong..!")
             logger.error(f"Error getting messages: {e}")
             return
+        await temp_msg.delete()
+	
+        for msg in messages:
+            caption = (
+                CUSTOM_CAPTION.format(
+                    previouscaption="" if not msg.caption else msg.caption.html,
+                    filename=msg.document.file_name
+                )
+                if bool(CUSTOM_CAPTION) and bool(msg.document)
+                else "" if not msg.caption else msg.caption.html
+            )
         
-	await temp_msg.delete()
-	
-	for msg in messages:
-	    caption = (
-	        CUSTOM_CAPTION.format(
-	            previouscaption="" if not msg.caption else msg.caption.html,
-	            filename=msg.document.file_name
-	        )
-	        if bool(CUSTOM_CAPTION) and bool(msg.document)
-	        else "" if not msg.caption else msg.caption.html
-	    )
-	
-	    reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
-	
-	    try:
-	        sent_message = await msg.copy(
-	            chat_id=message.from_user.id,
-	            caption=caption,
-	            parse_mode=ParseMode.HTML,
-	            reply_markup=reply_markup,
-	            protect_content=PROTECT_CONTENT
-	        )
-	        #if AUTO_DELETE:
-	        asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-	        
-	        await asyncio.sleep(0.5)
-	    except FloodWait as e:
-	        await asyncio.sleep(e.x)
-	        sent_message = await msg.copy(
-	            chat_id=message.from_user.id,
-	            caption=caption,
-	            parse_mode=ParseMode.HTML,
-	            reply_markup=reply_markup,
-	            protect_content=PROTECT_CONTENT
-	        )
-	        #if AUTO_DELETE:
-	        asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-	    except Exception as e:
-	        logger.error(f"Error copying message: {e}")
-	        pass
-	return
-
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
+        
+            try:
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                #if AUTO_DELETE:
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                #if AUTO_DELETE:
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
+                pass
+        return
     else:
         reply_markup = InlineKeyboardMarkup(
             [
