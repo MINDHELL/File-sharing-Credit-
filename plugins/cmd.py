@@ -1,10 +1,10 @@
 from bot import Bot
-from pyrogram import filters, Client
+from pyrogram import filters, Client , InputFile
 from config import *
 from database.database import *
 from helper_func import *
 from datetime import datetime
-from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton , InputFile
+from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton 
 from pyrogram.enums import ParseMode
 import asyncio
 import logging
