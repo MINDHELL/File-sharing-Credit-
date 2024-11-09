@@ -172,6 +172,15 @@ async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
     text = message.text
 
+    #user_id = message.from_user.id
+
+    if not await present_user(user_id):
+        try:
+            await add_user(user_id)
+            logger.info(f"Added new user with ID: {user_id}")
+        except Exception as e:
+            logger.error(f"Error adding user {user_id}: {e}")
+
     # Ensure user exists in the database
     user_data = await user_collection.find_one({"_id": user_id})
     if not user_data:
