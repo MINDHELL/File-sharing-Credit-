@@ -14,7 +14,7 @@ mongo_client = AsyncIOMotorClient(DB_URI)
 db = mongo_client[DB_NAME]
 
 # Collections
-user_collection = db['user_collection']
+phdlust = db['phdlust']
 token_collection = db['tokens']
 verification_log_collection = db['verification_logs']
 
@@ -68,14 +68,14 @@ async def cleanup_old_logs():
 
 async def get_previous_token(user_id):
     """Retrieves the previous verification token for a user."""
-    user = await user_collection.find_one({"_id": user_id})
+    user = await phdlust.find_one({"_id": user_id})
     token = user.get("verify_token") if user else None
     logger.debug(f"Retrieved previous token for user {user_id}: {token}")
     return token
 
 async def set_previous_token(user_id, token):
     """Sets a new verification token for a user."""
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {"$set": {"verify_token": token}},
         upsert=True
@@ -86,26 +86,26 @@ async def add_user(user_id):
     """Adds a new user to the database with default settings."""
     user = default_user.copy()
     user["_id"] = user_id
-    await user_collection.insert_one(user)
+    await phdlust.insert_one(user)
     logger.info(f"Added new user with ID: {user_id}")
 
 async def present_user(user_id):
     """Checks if a user exists in the database."""
-    user = await user_collection.find_one({"_id": user_id})
+    user = await phdlust.find_one({"_id": user_id})
     exists = user is not None
     logger.debug(f"User {user_id} exists: {exists}")
     return exists
 
 async def full_userbase():
     """Retrieves all user IDs from the database."""
-    user_docs = user_collection.find()
+    user_docs = phdlust.find()
     user_ids = [doc['_id'] async for doc in user_docs]
     logger.info(f"Retrieved full user base with {len(user_ids)} users.")
     return user_ids
 
 async def del_user(user_id: int):
     """Deletes a user from the database."""
-    result = await user_collection.delete_one({'_id': user_id})
+    result = await phdlust.delete_one({'_id': user_id})
     if result.deleted_count:
         logger.info(f"Deleted user with ID: {user_id}")
     else:
@@ -113,21 +113,21 @@ async def del_user(user_id: int):
 
 async def get_user(user_id):
     """Retrieves user data, adding the user if they do not exist."""
-    user = await user_collection.find_one({"_id": user_id})
+    user = await phdlust.find_one({"_id": user_id})
     if user is None:
         await add_user(user_id)
-        user = await user_collection.find_one({"_id": user_id})
+        user = await phdlust.find_one({"_id": user_id})
     logger.debug(f"Retrieved user data for {user_id}: {user}")
     return user
 
 async def update_user(user_id, update_data):
     """Updates user data with the provided fields."""
-    await user_collection.update_one({"_id": user_id}, {"$set": update_data})
+    await phdlust.update_one({"_id": user_id}, {"$set": update_data})
     logger.info(f"Updated user {user_id} with data: {update_data}")
 
 async def increase_user_limit(user_id, credits):
     """Increases the user's credit limit by the specified amount."""
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {"$inc": {"limit": credits}}
     )
@@ -135,7 +135,7 @@ async def increase_user_limit(user_id, credits):
 
 async def set_premium_status(user_id, status, credits):
     """Sets the user's premium status and assigns credits based on the status."""
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {
             "$set": {
@@ -158,7 +158,7 @@ async def can_increase_credits(user_id, credits, time_limit=24):
     recent_usage = [usage for usage in token_usage if usage >= cutoff_time]
     
     # Update the user's token_usage to only include recent_usage
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {"$set": {"token_usage": recent_usage}}
     )
@@ -174,7 +174,7 @@ async def can_increase_credits(user_id, credits, time_limit=24):
 async def log_token_usage(user_id, credits):
     #Logs the credit increase usage for rate limiting.
     current_time = datetime.utcnow()
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {
             "$push": {
@@ -192,7 +192,7 @@ async def log_token_usage(user_id, credits):
     current_time = datetime.utcnow()
     
     # Update the user's token usage log with both time and credits
-    await user_collection.update_one(
+    await phdlust.update_one(
         {"_id": user_id},
         {
             "$push": {
@@ -209,7 +209,7 @@ async def log_token_usage(user_id, credits):
 
 async def get_token_usage(user_id):
     """Retrieves the user's token usage."""
-    user = await user_collection.find_one({"_id": user_id})
+    user = await phdlust.find_one({"_id": user_id})
     if user:
         token_usage = user.get("token_usage", [])
         logger.debug(f"Retrieved token usage for user {user_id}: {token_usage}")
@@ -223,7 +223,7 @@ async def remove_premium_if_low(user_id):
     """Removes premium status if user's credits fall below 20."""
     user = await get_user(user_id)
     if user["is_premium"] and user["limit"] < 20:
-        await user_collection.update_one(
+        await phdlust.update_one(
             {"_id": user_id},
             {
                 "$set": {
