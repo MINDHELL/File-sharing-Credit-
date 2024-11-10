@@ -62,10 +62,10 @@ async def start_command(client: Client, message: Message):
         except Exception as e:
             logger.error(f"Error adding user {user_id}: {e}")
 
-    user_data = await ph.find_one({"_id": user_id})
+    user_data = await phdlust.find_one({"_id": user_id})
     if not user_data:
         try:
-            await ph.insert_one({
+            await phdlust.insert_one({
                 "_id": user_id,
                 "limit": START_COMMAND_LIMIT,
                 "previous_token": None,
@@ -80,7 +80,7 @@ async def start_command(client: Client, message: Message):
             return
 
 
-    user_data = await ph.find_one({"_id": user_id})
+    user_data = await phdlust.find_one({"_id": user_id})
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
     is_premium = user_data.get("is_premium", False)
