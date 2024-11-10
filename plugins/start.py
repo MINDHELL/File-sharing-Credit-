@@ -41,7 +41,6 @@ async def get_shortlink(url, api, link):
         return link
 
 async def delete_message_after_delay(message: Message, delay: int):
-    """Delete a message after a specified delay."""
     await asyncio.sleep(delay)
     try:
         await message.delete()
@@ -63,7 +62,6 @@ async def start_command(client: Client, message: Message):
         except Exception as e:
             logger.error(f"Error adding user {user_id}: {e}")
 
-    # Ensure user exists in the database
     user_data = await ph.find_one({"_id": user_id})
     if not user_data:
         try:
@@ -126,7 +124,7 @@ async def start_command(client: Client, message: Message):
                     #asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
                     return
 
-                # Token is valid, increment limit and update the token usage count
+
                 await phdlust.update_one(
                     {"_id": user_id},
                     {
@@ -229,7 +227,7 @@ async def start_command(client: Client, message: Message):
             reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
         
             try:
-                sent_message = await msg.copy(
+                phdlust_send = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
@@ -237,12 +235,12 @@ async def start_command(client: Client, message: Message):
                     protect_content=PROTECT_CONTENT
                 )
                 #if AUTO_DELETE:
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                asyncio.create_task(delete_message_after_delay(phdlust_send, AUTO_DELETE_DELAY))
                 
                 await asyncio.sleep(0.5)
             except FloodWait as e:
                 await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
+                phdlust_send = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
@@ -250,7 +248,7 @@ async def start_command(client: Client, message: Message):
                     protect_content=PROTECT_CONTENT
                 )
                 #if AUTO_DELETE:
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                asyncio.create_task(delete_message_after_delay(phdlust_send, AUTO_DELETE_DELAY))
             except Exception as e:
                 logger.error(f"Error copying message: {e}")
                 pass
