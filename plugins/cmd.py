@@ -23,128 +23,56 @@ async def delete_message_after_delay(message: Message, delay: int):
     except Exception as e:
         logger.error(f"Failed to delete message: {e}")
 
-from bot import Bot
-from pyrogram import filters, Client
-from config import *
-from database.database import *
-from helper_func import *
-from datetime import datetime
-from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton 
-from pyrogram.enums import ParseMode
-import asyncio
-import logging
-import os
-from io import StringIO
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
-# Function to delete a message after a specified delay
-async def delete_message_after_delay(message: Message, delay: int):
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.error(f"Failed to delete message: {e}")
-
 @Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
 async def generate_credit_report(client: Client, message: Message):
-    """Generates a report of all users' credits and top 10 users based on remaining credits."""
+
     try:
-        # Fetch all users' credit data from the database
-        users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
+
+        users = await phdlust.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
         
-        # Sort users by remaining credits in descending order
+
         sorted_users = sorted(users, key=lambda x: x.get("limit", 0), reverse=True)
         top_10_users = sorted_users[:10]
 
-        # Prepare text file data with each user's ID and remaining credits
+
         output = StringIO()
         output.write("User ID, Remaining Credits\n")
         for user in sorted_users:
             output.write(f"{user['_id']}, {user.get('limit', 0)}\n")
 
-        # Save data to a .txt file
+
         file_path = "/tmp/user_credits_report.txt"
         with open(file_path, "w") as file:
             file.write(output.getvalue())
-        
-        # Send the report file to the admin
+
         await client.send_document(
             chat_id=message.chat.id,
             document=file_path,
             caption="📊 Here is the detailed credit report of all users, sorted by remaining credits."
         )
 
-        # Prepare and send the summary of the top 10 users with highest credits in a cleaner format
+
         top_10_summary = "🏆 **Top 10 Users by Credits** 🏆\n\n"
         top_10_summary += "Rank | User ID     | Credits\n"
-        top_10_summary += "---------------------------\n"
+        top_10_summary += "-----@Ultroid_official------\n"
         
         for idx, user in enumerate(top_10_users, start=1):
             top_10_summary += f"{idx:<4} | {user['_id']:<10} | {user.get('limit', 0):>7}\n"
 
         await message.reply_text(top_10_summary)
 
-        # Cleanup: Delete the temporary file after sending
+
         os.remove(file_path)
 
     except Exception as e:
         logger.error(f"Error in generating credit report: {e}")
         await message.reply_text("❌ An error occurred while generating the credit report.")
-
-
-"""
-@Client.on_message(filters.command('creditreport') & filters.private & filters.user(ADMINS))
-async def generate_credit_report(client: Client, message: Message):
-    #Generates a report of all users' credits and top 10 users based on remaining credits.
-    try:
-        # Fetch all users' credit data from the database
-        users = await user_collection.find({}, {"_id": 1, "limit": 1}).to_list(length=None)
-        
-        # Sort users by remaining credits in descending order to get the top 10
-        sorted_users = sorted(users, key=lambda x: x.get("limit", 0), reverse=True)
-        top_10_users = sorted_users[:10]
-
-        # Prepare text file data with each user's ID and remaining credits
-        output = StringIO()
-        output.write("User ID, Remaining Credits\n")
-        for user in users:
-            output.write(f"{user['_id']}, {user.get('limit', 0)}\n")
-
-        # Save data to a .txt file
-        file_path = "/tmp/user_credits_report.txt"
-        with open(file_path, "w") as file:
-            file.write(output.getvalue())
-        
-        # Send the report file to the admin
-        await client.send_document(
-            chat_id=message.chat.id,
-            document=file_path,
-            caption="📊 Here is the detailed credit report of all users."
-        )
-
-        # Prepare and send the summary of the top 10 users with highest credits
-        top_10_summary = "🏆 **Top 10 Users by Credits** 🏆\n\n"
-        for idx, user in enumerate(top_10_users, start=1):
-            top_10_summary += f"{idx}. User ID: {user['_id']}, Credits: {user.get('limit', 0)}\n"
-
-        await message.reply_text(top_10_summary)
-
-        # Cleanup: Delete the temporary file after sending
-        os.remove(file_path)
-
-    except Exception as e:
-        logger.error(f"Error in generating credit report: {e}")
-        await message.reply_text("❌ An error occurred while generating the credit report.")
-
-"""
 
 
 
 @Client.on_message(filters.command('givecredits') & filters.private)
 async def give_credits(client: Client, message: Message):
-    """Handles the /givecredits command for admins to give credits to a specific user."""
+
     admin_id = message.from_user.id
 
     # Check if the user is an admin
@@ -162,14 +90,14 @@ async def give_credits(client: Client, message: Message):
         user_id = int(command_parts[1])
         credits_to_add = int(command_parts[2])
 
-        # Find the user in the database
-        user_data = await user_collection.find_one({"_id": user_id})
+
+        user_data = await phdlust.find_one({"_id": user_id})
         if not user_data:
             await message.reply_text(f"❌ User with ID {user_id} not found.")
             return
 
         # Update the user's credit limit
-        await user_collection.update_one(
+        await phdlust.update_one(
             {"_id": user_id},
             {"$inc": {"limit": credits_to_add}}
         )
@@ -183,7 +111,6 @@ async def give_credits(client: Client, message: Message):
         await message.reply_text("❌ An error occurred while processing your request. Please try again later.")
 
 
-# Admin command to add credits to a user
 @Client.on_message(filters.command('addcredits') & filters.private & filters.user(ADMINS))
 async def add_credits(client: Client, message: Message):
     user_id = message.from_user.id
@@ -214,7 +141,7 @@ async def add_credits(client: Client, message: Message):
         logger.error(f"Error in add_credits: {e}")
         await message.reply_text("An error occurred while adding credits.")
 
-# Admin command to assign premium status and credits to a user
+
 @Client.on_message(filters.command('givepr') & filters.user(ADMINS))
 async def give_premium_status(client: Client, message: Message):
     if len(message.command) != 4:
@@ -230,7 +157,7 @@ async def give_premium_status(client: Client, message: Message):
             await message.reply_text("Invalid premium status. Choose from Bronze, Silver, Gold.")
             return
         
-        # Define credit amounts for each premium status
+
         premium_credits = {
             'Bronze': 50,
             'Silver': 100,
@@ -244,7 +171,7 @@ async def give_premium_status(client: Client, message: Message):
         await set_premium_status(user_id, premium_status, credits)
         await message.reply_text(f"Assigned {premium_status} status with {credits} credits to user {user_id}.")
         
-        # Notify the user if they are online
+
         try:
             await client.send_message(
                 chat_id=user_id,
@@ -260,13 +187,13 @@ async def give_premium_status(client: Client, message: Message):
         logger.error(f"Error in give_premium_status: {e}")
         await message.reply_text("An error occurred while assigning premium status.")
 
-# User command to check their premium status and remaining credits
+
 @Client.on_message(filters.command('profile') & filters.private)
 async def check_premium_status(client: Client, message: Message):
     user_id = message.from_user.id
 
-    # Retrieve user data from the database
-    user = await user_collection.find_one({"_id": user_id})
+
+    user = await phdlust.find_one({"_id": user_id})
 
     if user is None:
         await message.reply_text("You are not registered in our database. Please use /start to register.")
@@ -277,23 +204,23 @@ async def check_premium_status(client: Client, message: Message):
     limit = user.get("limit", 0)
 
     if is_premium:
-        # Get premium status information
+
         premium_status = user.get("premium_status", "Unknown")
         await message.reply_text(
             f"🏆 <b>Premium Status: {premium_status}</b>\n💳 <b>Credits: {limit}</b>",
             parse_mode=ParseMode.HTML
         )
     else:
-        # Non-premium users' message
+
         await message.reply_text(
             f"You are not a premium user.\n<b>Credits:</b> {limit}\nBecome a Premium user: /plans",
             parse_mode=ParseMode.HTML
         )
 
-    # Delete the user's command after a delay to keep the chat clean
+
     asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
 
-# User command to check their current credit limit
+
 @Client.on_message(filters.command('check') & filters.private)
 async def check_command(client: Client, message: Message):
     user_id = message.from_user.id
@@ -311,7 +238,7 @@ async def check_command(client: Client, message: Message):
 
 @Client.on_message(filters.command('count') & filters.private)
 async def token_stats(client: Client, message: Message):
-    """Handles the /token_stats command for admins to view token verification statistics."""
+
     admin_id = message.from_user.id
 
     # Check if the user is an admin
@@ -320,28 +247,28 @@ async def token_stats(client: Client, message: Message):
         return
 
     try:
-        # Get the total number of tokens verified
-        total_token_count = await user_collection.count_documents({"token_use_count": {"$gt": 0}})
 
-        # Get the total number of verifications across all users
-        total_verifications = await user_collection.aggregate([
+        total_token_count = await phdlust.count_documents({"token_use_count": {"$gt": 0}})
+
+
+        total_verifications = await phdlust.aggregate([
             {"$group": {"_id": None, "total_verifications": {"$sum": "$token_use_count"}}}
         ]).to_list(None)
         total_verifications_count = total_verifications[0]['total_verifications'] if total_verifications else 0
 
-        # Get token verification data for the last 24 hours
+
         last_24_hours = datetime.now() - timedelta(hours=24)
-        last_24_hours_data = await user_collection.count_documents({
+        last_24_hours_data = await phdlust.count_documents({
             "last_token_use_time": {"$gte": last_24_hours}
         })
 
-        # Get token verification data for today
+
         start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        day_data = await user_collection.count_documents({
+        day_data = await phdlust.count_documents({
             "last_token_use_time": {"$gte": start_of_day}
         })
 
-        # Format the summary message for admins
+
         summary_message = (
             "📊 **Token Verification Stats** 📊\n\n"
             f"🔹 Total users who verified tokens: {total_token_count}\n"
@@ -350,7 +277,7 @@ async def token_stats(client: Client, message: Message):
             f"🔹 Token verifications today: {day_data}\n"
         )
 
-        # Send the summary message to the admin
+
         await message.reply_text(summary_message)
 
     except Exception as e:
@@ -358,18 +285,9 @@ async def token_stats(client: Client, message: Message):
         await message.reply_text("An error occurred while fetching token statistics. Please try again later.")
 
 
-# /plans command to show subscription plans
 @Client.on_message(filters.command('plans') & filters.private)
 async def show_plans(client: Client, message: Message):
-    plans_text = """
-🎁 <b>Available Subscription Plans:</b>
-
-1. 50  Credit - Bronze Premium - 20₹
-2. 100 Credit - Silver Premium - 35₹
-3. 200 Credit - Gold   Premium - 50₹
-
-To subscribe, click the "Pay via UPI" button below or use /upi cmd 
-"""
+    plans_text = PAYMENT_TEXT 
     buttons = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Pay via UPI", callback_data="upi_info")],
          [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
@@ -377,7 +295,7 @@ To subscribe, click the "Pay via UPI" button below or use /upi cmd
 
     await message.reply(plans_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
 
-# /upi command to show payment QR and options
+
 @Client.on_message(filters.command('upi') & filters.private)
 async def upi_info(client: Client, message: Message):
     try:
@@ -394,7 +312,7 @@ async def upi_info(client: Client, message: Message):
         await message.reply_text("Sorry, I couldn't send the UPI information. Please try again later.")
         logger.error(f"Error occurred while sending UPI info: {e}")
 
-# /help command to show available commands
+
 @Client.on_message(filters.command('help') & filters.private)
 async def help_command(client: Client, message: Message):
     help_text = """
@@ -419,10 +337,3 @@ async def help_command(client: Client, message: Message):
 """
     await message.reply(help_text, parse_mode=ParseMode.HTML)
 
-"""
-# Handle callback queries for UPI payment info
-@Client.on_callback_query(filters.regex('upi_info'))
-async def handle_upi_info(client: Client, callback_query: CallbackQuery):
-    await callback_query.answer()
-    await upi_info(client, callback_query.message)
-"""
