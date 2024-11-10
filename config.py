@@ -9,9 +9,9 @@ from logging.handlers import RotatingFileHandler
 
 MAX_TOKEN_USES_PER_DAY = 2  # Maximum times a user can use the token in 24 hours
 CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
-ADMIN_IDS = [6695586027]
-START_COMMAND_LIMIT = 15  # Default limit for new users
 LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verification
+
+START_COMMAND_LIMIT = 15  # Default limit for new users
 AUTO_DELETE_DELAY = 600 
 
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7447026397:AAHeIQzJGiOxpW1ud5EbM8pqNOxqUAPx3NI")
@@ -22,8 +22,10 @@ BAN = int(os.environ.get("BAN", "1198543450")) #Owner user id
 OWNER = os.environ.get("OWNER", "PhDLust") #Owner username
 OWNER_ID = int(os.environ.get("OWNER_ID", "7131513396")) #Owner user id
 OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'jatin_24x')  #Owner username
+
 SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "ULTROIDOFFICIAL_CHAT") # WITHOUR @
 CHANNEL = os.environ.get("CHANNEL", "ULTROID_OFFICIAL") # WITHOUR @
+
 AUTO_DELETE = os.environ.get("AUTO_DELETE", True) 
 
 PAYMENT_QR = os.getenv('PAYMENT_QR', 'https://graph.org/file/c54fdc8a5580bb801abc2.jpg')
@@ -31,9 +33,9 @@ PAYMENT_QR = os.getenv('PAYMENT_QR', 'https://graph.org/file/c54fdc8a5580bb801ab
 PAYMENT_TEXT = os.getenv('PAYMENT_TEXT', """
 🎁 <b>Available Subscription Plans:</b>
 
-1. 50  Credit - Bronze Premium - 20₹
-2. 100 Credit - Silver Premium - 35₹
-3. 200 Credit - Gold   Premium - 50₹
+1. 20 Credit - Bronze Premium - 20₹
+2. 35 Credit - Silver Premium - 35₹
+3. 50+50 Credit - Gold   Premium - 50₹
 
 To subscribe, click the "Pay via UPI" button below. 
 """)
@@ -62,6 +64,7 @@ SECONDS = int(os.getenv("SECONDS", "200")) # auto delete in seconds
 PORT = os.environ.get("PORT", "8080")
 TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "4"))
 START_MSG = os.environ.get("START_MESSAGE", "Hello {first}\n\nI can store private files in Specified Channel and other users can access it from special link.")
+ADMIN_IDS = [6695586027]
 
 try:
     ADMINS=[6020516635]
