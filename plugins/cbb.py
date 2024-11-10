@@ -45,13 +45,13 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         user_id = query.from_user.id
         is_admin = user_id in ADMINS
 
-        # Fetch token counts
+
         today_tokens = await get_today_token_count()
         total_tokens = await get_total_token_count()
         user_tokens = await get_user_token_count(user_id)
 
         if is_admin:
-            # For admins, optionally display more detailed stats
+
             users = await full_userbase()
             user_token_details = ""
             for user in users[:100]:  # Limit to first 100 users for brevity
