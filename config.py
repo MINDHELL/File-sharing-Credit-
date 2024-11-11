@@ -14,7 +14,7 @@ LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verif
 START_COMMAND_LIMIT = 15  # Default limit for new users
 AUTO_DELETE_DELAY = 600 
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7447026397:AAHeIQzJGiOxpW1ud5EbM8pqNOxqUAPx3NI")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "44702697:AAHeIQzJGiO1ud5EbM8pqNOxqUAPx3NI")
 APP_ID = int(os.environ.get("APP_ID", "22505271"))
 API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
  
