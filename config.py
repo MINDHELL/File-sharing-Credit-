@@ -21,7 +21,7 @@ API_HASH = os.environ.get("API_HASH", "82f5398437eb5474b676e83ed67e69cc")
 BAN = int(os.environ.get("BAN", "1198543450")) #Owner user id
 OWNER = os.environ.get("OWNER", "XSUPPRTBOT") #Owner username
 OWNER_ID = int(os.environ.get("OWNER_ID", "7125905015")) #Owner user id
-OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'SKYLER_001)  #Owner username
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'SKYLER_001')  #Owner username
 
 SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "XSUPPORTCHATS") # WITHOUR @
 CHANNEL = os.environ.get("CHANNEL", "XMAINOFFICIAL") # WITHOUR @
