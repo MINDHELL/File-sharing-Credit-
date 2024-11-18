@@ -8,23 +8,23 @@ from logging.handlers import RotatingFileHandler
 
 
 MAX_TOKEN_USES_PER_DAY = 2  # Maximum times a user can use the token in 24 hours
-CREDIT_INCREMENT = 10       # The number of credits to increase per token usage
+CREDIT_INCREMENT = 20       # The number of credits to increase per token usage
 LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verification
 
 START_COMMAND_LIMIT = 15  # Default limit for new users
-AUTO_DELETE_DELAY = 600 
+AUTO_DELETE_DELAY = 10 
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "44702697:AAHeIQzJGiO1ud5EbM8pqNOxqUAPx3NI")
-APP_ID = int(os.environ.get("APP_ID", "22505271"))
-API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7337793471:AAGelTQn7Mr3Ah7sgfQnV1uWkH0GwaDasZw")
+APP_ID = int(os.environ.get("APP_ID", "9218751"))
+API_HASH = os.environ.get("API_HASH", "82f5398437eb5474b676e83ed67e69cc")
  
 BAN = int(os.environ.get("BAN", "1198543450")) #Owner user id
-OWNER = os.environ.get("OWNER", "PhDLust") #Owner username
-OWNER_ID = int(os.environ.get("OWNER_ID", "7131513396")) #Owner user id
-OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'jatin_24x')  #Owner username
+OWNER = os.environ.get("OWNER", "XSUPPRTBOT") #Owner username
+OWNER_ID = int(os.environ.get("OWNER_ID", "7125905015")) #Owner user id
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'SKYLER_001)  #Owner username
 
-SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "ULTROIDOFFICIAL_CHAT") # WITHOUR @
-CHANNEL = os.environ.get("CHANNEL", "ULTROID_OFFICIAL") # WITHOUR @
+SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "XSUPPORTCHATS") # WITHOUR @
+CHANNEL = os.environ.get("CHANNEL", "XMAINOFFICIAL") # WITHOUR @
 
 AUTO_DELETE = os.environ.get("AUTO_DELETE", True) 
 
@@ -42,11 +42,11 @@ To subscribe, click the "Pay via UPI" button below.
 
 
 
-DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://ultroidxTeam:ultroidxTeam@cluster0.gabxs6m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-DB_NAME = os.environ.get("DATABASE_NAME", "Cluser10")
+DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_NAME = os.environ.get("DATABASE_NAME", "creditdb")
 
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002075726565")) #database save channel id 
-FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "0"))
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002426116442")) #database save channel id 
+FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "-1002457240988"))
 FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "0"))
 FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "0"))
 FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "0"))
@@ -64,10 +64,10 @@ SECONDS = int(os.getenv("SECONDS", "200")) # auto delete in seconds
 PORT = os.environ.get("PORT", "8080")
 TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "4"))
 START_MSG = os.environ.get("START_MESSAGE", "Hello {first}\n\nI can store private files in Specified Channel and other users can access it from special link.")
-ADMIN_IDS = [6695586027]
+ADMIN_IDS = [7125905015]
 
 try:
-    ADMINS=[6020516635]
+    ADMINS=[7125905015]
     for x in (os.environ.get("ADMINS", "1198543451 6020516635 1837294444 6695586027").split()):
         ADMINS.append(int(x))
 except ValueError:
@@ -78,7 +78,7 @@ FORCE_MSG = os.environ.get("FORCE_SUB_MESSAGE", "Hello {first}\n\n<b>You need to
 
 CUSTOM_CAPTION = os.environ.get("CUSTOM_CAPTION", None) # remove None and fo this ->: "here come your txt" also with this " " 
 
-PROTECT_CONTENT = True if os.environ.get('PROTECT_CONTENT', "False") == "True" else False
+PROTECT_CONTENT = True if os.environ.get('PROTECT_CONTENT', "True") == "True" else False
 
 DISABLE_CHANNEL_BUTTON = os.environ.get("DISABLE_CHANNEL_BUTTON", None) == 'True'
 
@@ -86,7 +86,7 @@ BOT_STATS_TEXT = "<b>BOT UPTIME</b>\n{uptime}"
 USER_REPLY_TEXT = "❌Don't send me messages directly I'm only File Share bot !"
 
 ADMINS.append(OWNER_ID)
-ADMINS.append(6695586027)
+ADMINS.append(7125905015)
 
 LOG_FILE_NAME = "uxblogs.txt"
 
