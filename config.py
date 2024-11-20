@@ -7,7 +7,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 
-MAX_TOKEN_USES_PER_DAY = 2  # Maximum times a user can use the token in 24 hours
+MAX_TOKEN_USES_PER_DAY = 6  # Maximum times a user can use the token in 24 hours
 CREDIT_INCREMENT = 20       # The number of credits to increase per token usage
 LIMIT_INCREASE_AMOUNT = 10  # Amount by which the limit is increased after verification
 
